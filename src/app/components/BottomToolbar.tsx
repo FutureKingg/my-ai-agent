@@ -41,9 +41,9 @@ function BottomToolbar({
   };
 
   function getConnectionButtonLabel() {
-    if (isConnected) return "Disconnect";
-    if (isConnecting) return "Connecting...";
-    return "Connect";
+    if (isConnected) return "통화 종료";
+    if (isConnecting) return "연결 중...";
+    return "통화 연결";
   }
 
   function getConnectionButtonClasses() {

@@ -150,11 +150,7 @@ function App() {
     setSelectedAgentConfigSet(agents);
   }, [searchParams]);
 
-  useEffect(() => {
-    if (selectedAgentName && sessionStatus === "DISCONNECTED") {
-      connectToRealtime();
-    }
-  }, [selectedAgentName]);
+  // 자동 연결 기능 제거 - 사용자가 Connect 버튼을 클릭할 때만 연결
 
   useEffect(() => {
     if (
@@ -195,6 +191,12 @@ function App() {
   };
 
   const connectToRealtime = async () => {
+    // selectedAgentName이 설정되지 않았으면 연결하지 않음
+    if (!selectedAgentName) {
+      console.warn("Agent가 선택되지 않았습니다. 연결을 시도할 수 없습니다.");
+      return;
+    }
+
     const agentSetKey = searchParams.get("agentConfig") || "default";
     if (sdkScenarioMap[agentSetKey]) {
       if (sessionStatus !== "DISCONNECTED") return;
@@ -449,7 +451,7 @@ function App() {
             />
           </div>
           <div>
-            Realtime API <span className="text-gray-500">Agents</span>
+            AI 상담사 테스트
           </div>
         </div>
         <div className="flex items-center">

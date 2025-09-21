@@ -11,8 +11,6 @@ interface BottomToolbarProps {
   handleTalkButtonUp: () => void;
   isEventsPaneExpanded: boolean;
   setIsEventsPaneExpanded: (val: boolean) => void;
-  isAudioPlaybackEnabled: boolean;
-  setIsAudioPlaybackEnabled: (val: boolean) => void;
   codec: string;
   onCodecChange: (newCodec: string) => void;
 }
@@ -27,8 +25,6 @@ function BottomToolbar({
   handleTalkButtonUp,
   isEventsPaneExpanded,
   setIsEventsPaneExpanded,
-  isAudioPlaybackEnabled,
-  setIsAudioPlaybackEnabled,
   codec,
   onCodecChange,
 }: BottomToolbarProps) {
@@ -81,7 +77,7 @@ function BottomToolbar({
           htmlFor="push-to-talk"
           className="flex items-center cursor-pointer"
         >
-          Push to talk
+          눌러서 말하기
         </label>
         <button
           onMouseDown={handleTalkButtonDown}
@@ -95,26 +91,10 @@ function BottomToolbar({
             (!isPTTActive ? " bg-gray-100 text-gray-400" : "")
           }
         >
-          Talk
+          말하기
         </button>
       </div>
 
-      <div className="flex flex-row items-center gap-1">
-        <input
-          id="audio-playback"
-          type="checkbox"
-          checked={isAudioPlaybackEnabled}
-          onChange={(e) => setIsAudioPlaybackEnabled(e.target.checked)}
-          disabled={!isConnected}
-          className="w-4 h-4"
-        />
-        <label
-          htmlFor="audio-playback"
-          className="flex items-center cursor-pointer"
-        >
-          Audio playback
-        </label>
-      </div>
 
       <div className="flex flex-row items-center gap-2">
         <input
@@ -125,12 +105,12 @@ function BottomToolbar({
           className="w-4 h-4"
         />
         <label htmlFor="logs" className="flex items-center cursor-pointer">
-          Logs
+          로그
         </label>
       </div>
 
       <div className="flex flex-row items-center gap-2">
-        <div>Codec:</div>
+        <div>코덱:</div>
         {/*
           Codec selector – Lets you force the WebRTC track to use 8 kHz 
           PCMU/PCMA so you can preview how the agent will sound 

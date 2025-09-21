@@ -74,21 +74,21 @@ function Transcript({
     <div className="flex flex-col flex-1 bg-white min-h-0 rounded-xl">
       <div className="flex flex-col flex-1 min-h-0">
         <div className="flex items-center justify-between px-6 py-3 sticky top-0 z-10 text-base border-b bg-white rounded-t-xl">
-          <span className="font-semibold">Transcript</span>
+          <span className="font-semibold">대화 내용</span>
           <div className="flex gap-x-2">
             <button
               onClick={handleCopyTranscript}
               className="w-24 text-sm px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center gap-x-1"
             >
               <ClipboardCopyIcon />
-              {justCopied ? "Copied!" : "Copy"}
+              {justCopied ? "복사됨!" : "복사"}
             </button>
             <button
               onClick={downloadRecording}
               className="w-40 text-sm px-3 py-1 rounded-md bg-gray-200 hover:bg-gray-300 flex items-center justify-center gap-x-1"
             >
               <DownloadIcon />
-              <span>Download Audio</span>
+              <span>오디오 다운로드</span>
             </button>
           </div>
         </div>
@@ -222,14 +222,14 @@ function Transcript({
             }
           }}
           className="flex-1 px-4 py-2 focus:outline-none"
-          placeholder="Type a message..."
+          placeholder="메시지를 입력하세요..."
         />
         <button
           onClick={onSendMessage}
           disabled={!canSend || !userText.trim()}
           className="bg-gray-900 text-white rounded-full px-2 py-2 disabled:opacity-50"
         >
-          <Image src="arrow.svg" alt="Send" width={24} height={24} />
+          <Image src="arrow.svg" alt="전송" width={24} height={24} />
         </button>
       </div>
     </div>

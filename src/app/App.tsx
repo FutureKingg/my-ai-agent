@@ -111,6 +111,10 @@ function App() {
 
   const [isEventsPaneExpanded, setIsEventsPaneExpanded] =
     useState<boolean>(true);
+  const [isConsultantSettingsOpen, setIsConsultantSettingsOpen] = useState<boolean>(false);
+  const [consultantGreeting, setConsultantGreeting] = useState<string>("");
+  const [consultantRole, setConsultantRole] = useState<string>("");
+  const [voiceGenderFilter, setVoiceGenderFilter] = useState<'all' | 'male' | 'female'>('all');
   const [userText, setUserText] = useState<string>("");
   const [isPTTActive, setIsPTTActive] = useState<boolean>(false);
   const [isPTTUserSpeaking, setIsPTTUserSpeaking] = useState<boolean>(false);
@@ -205,6 +209,20 @@ function App() {
         const selectedVoice = getVoiceById(selectedVoiceId);
         agents.forEach(agent => {
           agent.voice = selectedVoice.voice;
+          
+          // Apply custom consultant settings or use default prompts
+          let customInstructions = "";
+          
+          // Add greeting (use placeholder if empty)
+          const greetingText = consultantGreeting.trim() || "안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?";
+          customInstructions += `인사말: ${greetingText}\n\n`;
+          
+          // Add role (use placeholder if empty)
+          const roleText = consultantRole.trim() || "당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다. 고객의 만족을 최우선으로 생각하며, 모든 질문에 대해 상세하고 정확한 답변을 제공합니다.";
+          customInstructions += `역할 및 정보: ${roleText}`;
+          
+          // Always apply instructions (either custom or default)
+          agent.instructions = customInstructions.trim();
         });
 
         const companyName = agentSetKey === 'customerServiceRetail'
@@ -362,6 +380,30 @@ function App() {
     window.location.replace(url.toString());
   };
 
+  const handleConsultantSettingsClick = () => {
+    console.log('상담사 설정 버튼 클릭됨');
+    setIsConsultantSettingsOpen(!isConsultantSettingsOpen);
+  };
+
+  const handleSaveConsultantSettings = () => {
+    console.log('상담사 설정 저장됨 - 인사말:', consultantGreeting, '역할:', consultantRole);
+    // 저장 후 사이드바 닫기
+    setIsConsultantSettingsOpen(false);
+  };
+
+  const handleCancelConsultantSettings = () => {
+    // 취소 시 사이드바만 닫기
+    setIsConsultantSettingsOpen(false);
+  };
+
+  // 성별에 따라 목소리 필터링
+  const getFilteredVoices = () => {
+    if (voiceGenderFilter === 'all') {
+      return voices;
+    }
+    return voices.filter(voice => voice.gender === voiceGenderFilter);
+  };
+
   useEffect(() => {
     const storedPushToTalkUI = localStorage.getItem("pushToTalkUI");
     if (storedPushToTalkUI) {
@@ -380,6 +422,14 @@ function App() {
     const storedVoiceId = localStorage.getItem("selectedVoiceId");
     if (storedVoiceId) {
       setSelectedVoiceId(storedVoiceId);
+    }
+    const storedConsultantGreeting = localStorage.getItem("consultantGreeting");
+    if (storedConsultantGreeting) {
+      setConsultantGreeting(storedConsultantGreeting);
+    }
+    const storedConsultantRole = localStorage.getItem("consultantRole");
+    if (storedConsultantRole) {
+      setConsultantRole(storedConsultantRole);
     }
   }, []);
 
@@ -401,6 +451,24 @@ function App() {
   useEffect(() => {
     localStorage.setItem("selectedVoiceId", selectedVoiceId);
   }, [selectedVoiceId]);
+
+  useEffect(() => {
+    localStorage.setItem("consultantGreeting", consultantGreeting);
+  }, [consultantGreeting]);
+
+  useEffect(() => {
+    localStorage.setItem("consultantRole", consultantRole);
+  }, [consultantRole]);
+
+  // 성별 필터 변경 시 현재 선택된 목소리가 필터된 목록에 없으면 첫 번째 목소리로 변경
+  useEffect(() => {
+    const filteredVoices = getFilteredVoices();
+    const currentVoice = filteredVoices.find(voice => voice.id === selectedVoiceId);
+    
+    if (!currentVoice && filteredVoices.length > 0) {
+      setSelectedVoiceId(filteredVoices[0].id);
+    }
+  }, [voiceGenderFilter, selectedVoiceId]);
 
   // 드롭다운 외부 클릭 시 닫기
   useEffect(() => {
@@ -517,60 +585,6 @@ function App() {
             </div>
           </div>
 
-          <div className="flex items-center ml-6">
-            <label className="flex items-center text-base gap-1 mr-2 font-medium">
-              상담사 목소리
-            </label>
-            <div className="relative inline-block voice-dropdown-container">
-              <button
-                onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
-                className="appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none bg-white min-w-[200px] text-left"
-              >
-                <span 
-                  style={{ 
-                    color: getVoiceById(selectedVoiceId).gender === 'male' ? '#3b82f6' : '#ec4899' 
-                  }}
-                >
-                  {getVoiceById(selectedVoiceId).name}
-                </span>
-              </button>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
-                <svg
-                  className="h-4 w-4"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.44l3.71-3.21a.75.75 0 111.04 1.08l-4.25 3.65a.75.75 0 01-1.04 0L5.21 8.27a.75.75 0 01.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              
-              {/* 드롭다운 메뉴 */}
-              {isVoiceDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
-                  {voices.map((voice) => (
-                    <button
-                      key={voice.id}
-                      onClick={() => handleVoiceChange(voice.id)}
-                      className="w-full text-left px-3 py-2 hover:bg-gray-100 text-base font-normal"
-                    >
-                      <span 
-                        style={{ 
-                          color: voice.gender === 'male' ? '#3b82f6' : '#ec4899' 
-                        }}
-                      >
-                        {voice.name}
-                      </span>
-                      <span className="text-gray-800"> : {voice.description}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       </div>
 
@@ -584,6 +598,154 @@ function App() {
             sessionStatus === "CONNECTED"
           }
         />
+
+        {/* 상담사 설정 사이드바 */}
+        {isConsultantSettingsOpen && (
+          <div className="w-[480px] bg-white rounded-lg shadow-lg p-4 flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">상담사 역할 설정</h3>
+              <button
+                onClick={() => setIsConsultantSettingsOpen(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="flex-1 space-y-4">
+              {/* 상담사 목소리 설정 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  상담사 목소리
+                </label>
+                
+                {/* 성별 필터 버튼들 */}
+                <div className="flex gap-1 mb-3">
+                  <button
+                    onClick={() => setVoiceGenderFilter('all')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      voiceGenderFilter === 'all' 
+                        ? 'bg-gray-200 text-gray-800' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    전체
+                  </button>
+                  <button
+                    onClick={() => setVoiceGenderFilter('male')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      voiceGenderFilter === 'male' 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-blue-50'
+                    }`}
+                  >
+                    남성
+                  </button>
+                  <button
+                    onClick={() => setVoiceGenderFilter('female')}
+                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                      voiceGenderFilter === 'female' 
+                        ? 'bg-pink-100 text-pink-800' 
+                        : 'bg-gray-100 text-gray-600 hover:bg-pink-50'
+                    }`}
+                  >
+                    여성
+                  </button>
+                </div>
+
+                <div className="relative inline-block voice-dropdown-container w-full">
+                  <button
+                    onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
+                    className="w-full appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none bg-white text-left"
+                  >
+                    <span 
+                      style={{ 
+                        color: getVoiceById(selectedVoiceId).gender === 'male' ? '#3b82f6' : '#ec4899' 
+                      }}
+                    >
+                      {getVoiceById(selectedVoiceId).name}
+                    </span>
+                    <span className="text-gray-800"> : {getVoiceById(selectedVoiceId).description}</span>
+                  </button>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
+                    <svg
+                      className="h-4 w-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.23 7.21a.75.75 0 011.06.02L10 10.44l3.71-3.21a.75.75 0 111.04 1.08l-4.25 3.65a.75.75 0 01-1.04 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                  
+                  {/* 드롭다운 메뉴 */}
+                  {isVoiceDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                      {getFilteredVoices().map((voice) => (
+                        <button
+                          key={voice.id}
+                          onClick={() => handleVoiceChange(voice.id)}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-100 text-base font-normal"
+                        >
+                          <span 
+                            style={{ 
+                              color: voice.gender === 'male' ? '#3b82f6' : '#ec4899' 
+                            }}
+                          >
+                            {voice.name}
+                          </span>
+                          <span className="text-gray-800"> : {voice.description}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  인사말
+                </label>
+                <textarea
+                  value={consultantGreeting}
+                  onChange={(e) => setConsultantGreeting(e.target.value)}
+                  placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  역할 및 정보
+                </label>
+                <textarea
+                  value={consultantRole}
+                  onChange={(e) => setConsultantRole(e.target.value)}
+                  placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다. 고객의 만족을 최우선으로 생각하며, 모든 질문에 대해 상세하고 정확한 답변을 제공합니다."
+                  className="w-full h-48 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <button 
+                  onClick={handleCancelConsultantSettings}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  취소
+                </button>
+                <button 
+                  onClick={handleSaveConsultantSettings}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <Events isExpanded={isEventsPaneExpanded} />
       </div>
@@ -600,6 +762,7 @@ function App() {
         setIsEventsPaneExpanded={setIsEventsPaneExpanded}
         codec={urlCodec}
         onCodecChange={handleCodecChange}
+        onConsultantSettingsClick={handleConsultantSettingsClick}
       />
     </div>
   );

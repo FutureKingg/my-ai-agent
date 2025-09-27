@@ -13,6 +13,7 @@ interface BottomToolbarProps {
   setIsEventsPaneExpanded: (val: boolean) => void;
   codec: string;
   onCodecChange: (newCodec: string) => void;
+  onConsultantSettingsClick: () => void;
 }
 
 function BottomToolbar({
@@ -27,6 +28,7 @@ function BottomToolbar({
   setIsEventsPaneExpanded,
   codec,
   onCodecChange,
+  onConsultantSettingsClick,
 }: BottomToolbarProps) {
   const isConnected = sessionStatus === "CONNECTED";
   const isConnecting = sessionStatus === "CONNECTING";
@@ -107,6 +109,15 @@ function BottomToolbar({
         <label htmlFor="logs" className="flex items-center cursor-pointer">
           로그
         </label>
+      </div>
+
+      <div className="flex flex-row items-center gap-2">
+        <button
+          onClick={onConsultantSettingsClick}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-base"
+        >
+          상담사 설정
+        </button>
       </div>
 
       <div className="flex flex-row items-center gap-2">

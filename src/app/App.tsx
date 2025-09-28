@@ -74,6 +74,22 @@ function App() {
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("openai-sage");
   const [isVoiceDropdownOpen, setIsVoiceDropdownOpen] = useState<boolean>(false);
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
+  const [conversationStyle, setConversationStyle] = useState<string>("standard");
+  const [customConversationStyle, setCustomConversationStyle] = useState<string>("");
+
+  // 대화 스타일 매핑 (SYSTEM 지시로 변경)
+  const conversationStyleMap = {
+    calm: `SYSTEM: 모든 응답을 차분하고 명확하게 해주세요.
+SYSTEM: 천천히, 여유롭게 설명해주세요.
+SYSTEM: 각 단어를 명확하게 발음하며 친근하게 대화해주세요.`,
+    standard: `SYSTEM: 모든 응답을 빠르고 간결하게 해주세요.
+SYSTEM: 응답 시간을 최대한 단축하고, 불필요한 설명은 생략해주세요.
+SYSTEM: 질문에 대해 즉시 핵심만 답변해주세요.`,
+    energetic: `SYSTEM: 모든 응답을 즉시, 에너지 있게 해주세요.
+SYSTEM: 활기차고 빠르게 답변해주세요.
+SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
+    custom: ""
+  };
 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   // Ref to identify whether the latest agent switch came from an automatic handoff
@@ -84,9 +100,11 @@ function App() {
     const el = document.createElement('audio');
     el.autoplay = true;
     el.style.display = 'none';
+    el.playbackRate = voiceSpeed; // Set initial playback rate
     document.body.appendChild(el);
+    console.log('🎵 SDK Audio Element created with playbackRate:', el.playbackRate);
     return el;
-  }, []);
+  }, [voiceSpeed]);
 
   // Attach SDK audio element once it exists (after first render in browser)
   useEffect(() => {
@@ -107,6 +125,13 @@ function App() {
     onAgentHandoff: (agentName: string) => {
       handoffTriggeredRef.current = true;
       // Agent handoff is handled automatically by the SDK
+    },
+    onResponseComplete: (itemId: string) => {
+      console.log('🎵 Response complete, applying audio speed:', voiceSpeed);
+      // Apply audio speed when AI response is complete
+      setTimeout(() => {
+        applyAudioSpeedToAllElements(voiceSpeed);
+      }, 100);
     },
   });
 
@@ -145,8 +170,53 @@ function App() {
     storeName: string;
     voiceId: string;
     voiceSpeed: number;
+    conversationStyle: string;
+    customConversationStyle: string;
   }>>({});
   const [userText, setUserText] = useState<string>("");
+
+  // Note: Voice speed is now handled during connection, not in real-time
+
+  // Apply voice speed when slider changes (client-side audio processing)
+  const handleVoiceSpeedChange = (newSpeed: number) => {
+    setVoiceSpeed(newSpeed);
+    console.log('🎵 Voice speed changed to:', newSpeed);
+    
+    // Apply to all audio elements immediately
+    applyAudioSpeedToAllElements(newSpeed);
+  };
+
+  // Voice preview function
+  const playVoicePreview = (voiceId: string) => {
+    const selectedVoice = getVoiceById(voiceId);
+    console.log('🎵 Playing voice preview:', selectedVoice);
+    
+    // Create a simple text-to-speech preview
+    if ('speechSynthesis' in window) {
+      const utterance = new SpeechSynthesisUtterance('안녕하세요 상담사 목소리 테스트입니다.');
+      utterance.voice = speechSynthesis.getVoices().find(voice => 
+        voice.name.toLowerCase().includes(selectedVoice.voice.toLowerCase())
+      ) || null;
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      utterance.volume = 0.8;
+      
+      speechSynthesis.speak(utterance);
+    } else {
+      console.log('🎵 Speech synthesis not supported');
+    }
+  };
+
+  // Apply speed to all audio elements on the page (simplified)
+  const applyAudioSpeedToAllElements = (speed: number) => {
+    const audioElements = document.querySelectorAll('audio');
+    console.log('🎵 SIMPLE: Applying speed to', audioElements.length, 'audio elements');
+    
+    audioElements.forEach((audio, index) => {
+      console.log(`🎵 SIMPLE: Audio ${index} playbackRate: ${audio.playbackRate} -> ${speed}`);
+      audio.playbackRate = speed;
+    });
+  };
 
   // Create dynamic scenario map including saved consultants
   const sdkScenarioMap = useMemo(() => {
@@ -248,18 +318,59 @@ function App() {
         // Use the first agent as root (no reordering needed)
         const agents = [...sdkScenarioMap[agentSetKey]];
 
+        // Check if this is a saved consultant (outside the loop for access)
+        const savedConsultant = savedConsultants[agentSetKey];
+
         // Apply selected voice and COMPLETELY REPLACE instructions with user prompts
         const selectedVoice = getVoiceById(selectedVoiceId);
+        const finalVoiceSpeed = savedConsultant ? (savedConsultant.voiceSpeed || 1.0) : voiceSpeed;
+        
+        console.log('🎵 Voice Speed Settings:', {
+          voiceSpeed,
+          savedConsultantSpeed: savedConsultant?.voiceSpeed,
+          finalVoiceSpeed,
+          agentSetKey,
+          selectedVoice: selectedVoice.voice
+        });
+        
         agents.forEach(agent => {
-          // Create new agent with updated voice
-          Object.assign(agent, { voice: selectedVoice.voice });
+          // Create new agent with updated voice and speed
+          Object.assign(agent, { 
+            voice: selectedVoice.voice,
+            speed: finalVoiceSpeed
+          });
+          
+          console.log('🎵 Agent configured with:', {
+            voice: selectedVoice.voice,
+            speed: finalVoiceSpeed,
+            agentName: agent.name
+          });
           
           // COMPLETELY REPLACE agent instructions with user's custom prompts
           let customInstructions = "";
           
-          // Check if this is a saved consultant
-          const savedConsultant = savedConsultants[agentSetKey];
           
+          // Get conversation style
+          const currentStyle = savedConsultant ? (savedConsultant.conversationStyle || "standard") : conversationStyle;
+          const currentCustomStyle = savedConsultant ? (savedConsultant.customConversationStyle || "") : customConversationStyle;
+          
+          let styleText = "";
+          if (currentStyle === "custom") {
+            // 사용자 지정이 비어있으면 기본 시스템 스타일만 적용 (빈 문자열 반환)
+            styleText = currentCustomStyle || "";
+          } else {
+            styleText = conversationStyleMap[currentStyle as keyof typeof conversationStyleMap] || conversationStyleMap.standard;
+          }
+          
+          // 한국어 대화 최적화 지시 추가
+          const koreanOptimization = `SYSTEM: 말할 때 중간에 끊어 말하는 부분의 간격을 짧게 하여 자연스럽고 끊김 없이 말해주세요.
+SYSTEM: 한국어 대화에 최적화된 속도와 리듬으로 답변해주세요.
+SYSTEM: 문장과 문장 사이의 간격을 최소화하여 끊김 없는 자연스러운 대화를 해주세요.
+SYSTEM: 숫자를 말할 때는 자연스러운 한국어로 발음해주세요. 예: "열시"가 아닌 "10시", "십시"가 아닌 "10시", "오전 열시부터 오후 십시까지"가 아닌 "오전 10시부터 오후 10시까지"로 말해주세요.
+SYSTEM: 시간, 가격, 수량 등을 말할 때는 숫자를 명확하고 자연스럽게 발음해주세요.
+SYSTEM: 메뉴 관련 질문에 답할 때는 질문한 내용에만 집중해서 답변해주세요. 예: "대표 메뉴는 뭐뭐있나요?"라고 물어보면 "삼겹살, 갈비입니다"라고 메뉴명만 답하고 가격은 말하지 마세요. 가격을 묻지 않았으면 가격을 말하지 마세요.
+SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해서 자연스럽게 답변해주세요. 예: 오후에 "9시에 방문한다"고 하면 오전 9시인지 오후 9시인지 묻지 말고, 당연히 오후 9시로 이해하고 답변해주세요. 시간을 말할 때는 맥락에 맞게 자연스럽게 해주세요.`;
+
           if (savedConsultant) {
             // Use saved consultant settings
             const greetingText = savedConsultant.greeting.trim() || "안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?";
@@ -273,11 +384,17 @@ function App() {
             customInstructions += `**역할 및 성격**: ${roleText}\n\n`;
             
             const storeNameText = (savedConsultant.storeName || "").trim() || "";
-            const storeNameSection = storeNameText ? `**가게명**: ${storeNameText}\n\n` : "";
+            const storeNameSection = storeNameText ? `**업체명**: ${storeNameText}\n\n` : "";
             customInstructions += storeNameSection;
             
             const infoText = (savedConsultant.info || "").trim() || "운영시간: 오전 10시 - 오후 10시\n메뉴: 삼겹살 15,000원, 갈비 25,000원\n주차: 건물 지하 1층, 2시간 무료\n최대 예약 가능 인원: 8명";
-            customInstructions += `**참고 정보**: ${infoText}`;
+            customInstructions += `**참고 정보**: ${infoText}\n\n`;
+            
+            // Add conversation style and Korean optimization
+            if (styleText) {
+              customInstructions += `${styleText}\n\n`;
+            }
+            customInstructions += `${koreanOptimization}`;
           } else {
             // Use current form settings (for new consultants)
             const greetingText = (consultantGreeting || "").trim() || "안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?";
@@ -291,11 +408,17 @@ function App() {
             customInstructions += `**역할 및 성격**: ${roleText}\n\n`;
             
             const storeNameText = (consultantStoreName || "").trim() || "";
-            const storeNameSection = storeNameText ? `**가게명**: ${storeNameText}\n\n` : "";
+            const storeNameSection = storeNameText ? `**업체명**: ${storeNameText}\n\n` : "";
             customInstructions += storeNameSection;
             
             const infoText = (consultantInfo || "").trim() || "운영시간: 오전 10시 - 오후 10시\n메뉴: 삼겹살 15,000원, 갈비 25,000원\n주차: 건물 지하 1층, 2시간 무료\n최대 예약 가능 인원: 8명";
-            customInstructions += `**참고 정보**: ${infoText}`;
+            customInstructions += `**참고 정보**: ${infoText}\n\n`;
+            
+            // Add conversation style and Korean optimization
+            if (styleText) {
+              customInstructions += `${styleText}\n\n`;
+            }
+            customInstructions += `${koreanOptimization}`;
           }
           
           // COMPLETELY REPLACE instructions - no scenario instructions remain
@@ -322,7 +445,16 @@ function App() {
         extraContext: {
           addTranscriptBreadcrumb,
         },
+        voiceSpeed: finalVoiceSpeed,
       });
+
+      console.log('🎵 Connected with voice speed:', finalVoiceSpeed);
+
+      // Apply audio speed after connection (client-side)
+      setTimeout(() => {
+        console.log('🎵 Applying initial audio speed after connection:', finalVoiceSpeed);
+        applyAudioSpeedToAllElements(finalVoiceSpeed);
+      }, 2000); // Wait for audio elements to be created
     } catch (err) {
       console.error("Error connecting via SDK:", err);
       setSessionStatus("DISCONNECTED");
@@ -412,9 +544,11 @@ function App() {
 
   const onToggleConnection = () => {
     if (sessionStatus === "CONNECTED" || sessionStatus === "CONNECTING") {
+      console.log('🎵 DISCONNECTING...');
       disconnectFromRealtime();
       setSessionStatus("DISCONNECTED");
     } else {
+      console.log('🎵 CONNECTING...');
       connectToRealtime();
     }
   };
@@ -428,6 +562,9 @@ function App() {
   const handleVoiceChange = (newVoiceId: string) => {
     setSelectedVoiceId(newVoiceId);
     setIsVoiceDropdownOpen(false);
+    
+    // Play voice preview
+    playVoicePreview(newVoiceId);
     
     // If connected, update all agents' voice
     if (sessionStatus === "CONNECTED" && selectedAgentConfigSet) {
@@ -480,7 +617,9 @@ function App() {
           info: consultantInfo,
           storeName: consultantStoreName,
           voiceId: selectedVoiceId,
-          voiceSpeed: voiceSpeed
+          voiceSpeed: voiceSpeed,
+          conversationStyle: conversationStyle,
+          customConversationStyle: customConversationStyle
         };
         
         setSavedConsultants(prev => ({
@@ -508,7 +647,9 @@ function App() {
         info: consultantInfo,
         storeName: consultantStoreName,
         voiceId: selectedVoiceId,
-        voiceSpeed: voiceSpeed
+        voiceSpeed: voiceSpeed,
+        conversationStyle: conversationStyle,
+        customConversationStyle: customConversationStyle
       };
       
       setSavedConsultants(prev => ({
@@ -664,10 +805,15 @@ function App() {
     if (storedConsultantStoreName) {
       setConsultantStoreName(storedConsultantStoreName);
     }
-    const storedVoiceSpeed = localStorage.getItem("voiceSpeed");
-    if (storedVoiceSpeed) {
-      const speed = parseFloat(storedVoiceSpeed);
-      setVoiceSpeed(Math.min(Math.max(speed, 0.5), 1.5)); // 0.5~1.5 범위로 제한
+    // 목소리 속도는 항상 표준(1.0)으로 초기화 (미구현 상태)
+    setVoiceSpeed(1.0);
+    const storedConversationStyle = localStorage.getItem("conversationStyle");
+    if (storedConversationStyle) {
+      setConversationStyle(storedConversationStyle);
+    }
+    const storedCustomConversationStyle = localStorage.getItem("customConversationStyle");
+    if (storedCustomConversationStyle) {
+      setCustomConversationStyle(storedCustomConversationStyle);
     }
     const storedSelectedAgentConfig = localStorage.getItem("selectedAgentConfig");
     if (storedSelectedAgentConfig) {
@@ -730,6 +876,19 @@ function App() {
     localStorage.setItem("voiceSpeed", voiceSpeed.toString());
   }, [voiceSpeed]);
 
+  // 목소리 속도 슬라이더를 항상 표준(1.0) 위치로 강제 설정
+  useEffect(() => {
+    setVoiceSpeed(1.0);
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem("conversationStyle", conversationStyle);
+  }, [conversationStyle]);
+
+  useEffect(() => {
+    localStorage.setItem("customConversationStyle", customConversationStyle);
+  }, [customConversationStyle]);
+
   useEffect(() => {
     localStorage.setItem("selectedAgentConfig", selectedAgentConfig);
     
@@ -741,6 +900,9 @@ function App() {
       setConsultantInfo("");
       setConsultantStoreName("");
       setSelectedVoiceId("alloy");
+      setConversationStyle("standard");
+      setCustomConversationStyle("");
+      setVoiceSpeed(1.0); // 표준 위치로 리셋
     } else if (selectedAgentConfig.startsWith("consultant_")) {
       // 저장된 상담사 선택 시 해당 상담사 설정 로드
       const consultant = savedConsultants[selectedAgentConfig];
@@ -750,7 +912,9 @@ function App() {
         setConsultantInfo(consultant.info);
         setConsultantStoreName(consultant.storeName);
         setSelectedVoiceId(consultant.voiceId);
-        setVoiceSpeed(Math.min(Math.max(consultant.voiceSpeed || 1.0, 0.5), 1.5));
+        setVoiceSpeed(1.0); // 목소리 속도는 항상 표준(1.0)으로 설정 (미구현 상태)
+        setConversationStyle(consultant.conversationStyle || "standard");
+        setCustomConversationStyle(consultant.customConversationStyle || "");
       }
     }
   }, [selectedAgentConfig]);
@@ -953,7 +1117,7 @@ function App() {
                   style={{ overflowY: 'auto', minHeight: '96px', maxHeight: '150px' }}
                 />
               </div>
-
+              
               {/* 역할 설정 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1077,10 +1241,56 @@ function App() {
                 </div>
               </div>
 
-              {/* 목소리 속도 설정 */}
+              {/* 대화 스타일 설정 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  목소리 속도
+                  대화 스타일
+                </label>
+                <div className="relative inline-block w-full">
+                  <select
+                    value={conversationStyle}
+                    onChange={(e) => setConversationStyle(e.target.value)}
+                    className="w-full appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none bg-white text-left"
+                    title={
+                      conversationStyle === "calm" 
+                        ? "차분하고 명확하게, 천천히 여유롭게 설명해주세요."
+                        : conversationStyle === "standard"
+                        ? "빠르고 간결하게, 즉시 핵심만 답변해주세요."
+                        : conversationStyle === "energetic"
+                        ? "즉시, 에너지 있게, 활기차고 빠르게 답변해주세요."
+                        : "사용자가 직접 대화 스타일을 입력할 수 있습니다."
+                    }
+                  >
+                    <option value="calm">차분한 스타일</option>
+                    <option value="standard">표준 스타일</option>
+                    <option value="energetic">활발한 스타일</option>
+                    <option value="custom">사용자 지정</option>
+                </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+              </div>
+
+                {/* 사용자 지정 스타일 입력창 */}
+                {conversationStyle === "custom" && (
+                  <div className="mt-2">
+                <textarea
+                      value={customConversationStyle}
+                      onChange={(e) => setCustomConversationStyle(e.target.value)}
+                      placeholder="예: SYSTEM: 모든 응답을 빠르고 간결하게 해주세요. SYSTEM: 즉시 핵심만 답변해주세요."
+                      className="w-full h-20 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      style={{ overflowY: 'auto', minHeight: '80px', maxHeight: '120px' }}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 목소리 속도 설정 (미구현) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-2">
+                  목소리 속도 (미구현)
                 </label>
                 <div className="relative">
                   <div className="flex items-center space-x-4">
@@ -1091,37 +1301,23 @@ function App() {
                         max="1.5"
                         step="0.1"
                         value={voiceSpeed}
-                        onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                        onChange={(e) => {
+                          console.log('🎵 SLIDER CHANGED TO:', parseFloat(e.target.value));
+                          handleVoiceSpeedChange(parseFloat(e.target.value));
+                        }}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer opacity-50"
+                        disabled
                       />
                       {/* 슬라이더 기준 라벨 */}
                       <div className="absolute top-8 left-0 w-full">
-                        <div className="relative text-xs text-gray-500">
-                          <span 
-                            className="absolute left-0 cursor-pointer hover:text-gray-700 transition-colors"
-                            onClick={() => setVoiceSpeed(0.5)}
-                            title="느린 속도로 설정"
-                          >
-                            느림
-                          </span>
-                          <span 
-                            className="absolute left-1/2 transform -translate-x-1/2 cursor-pointer hover:text-gray-700 transition-colors"
-                            onClick={() => setVoiceSpeed(1.0)}
-                            title="표준 속도로 설정"
-                          >
-                            표준
-                          </span>
-                          <span 
-                            className="absolute right-0 cursor-pointer hover:text-gray-700 transition-colors"
-                            onClick={() => setVoiceSpeed(1.5)}
-                            title="빠른 속도로 설정"
-                          >
-                            빠름
-                          </span>
+                        <div className="relative text-xs text-gray-400">
+                          <span className="absolute left-0">느림</span>
+                          <span className="absolute left-1/2 transform -translate-x-1/2">표준</span>
+                          <span className="absolute right-0">빠름</span>
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-700 min-w-[3rem]">
+                    <span className="text-sm font-medium text-gray-400 min-w-[3rem]">
                       {voiceSpeed}x
                     </span>
                   </div>
@@ -1132,14 +1328,14 @@ function App() {
             
             {/* 저장/취소 버튼 - 스크롤 영역 밖에 고정 */}
             <div className="flex justify-end space-x-2 py-2 px-4">
-              <button 
+                <button
                 onClick={handleCancelConsultantSettings}
                 className="px-4 py-2 text-gray-600 hover:text-gray-800"
-              >
+                >
                 취소
-              </button>
-              <button 
-                onClick={handleSaveConsultantSettings}
+                </button>
+                <button
+                  onClick={handleSaveConsultantSettings}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 저장
@@ -1214,7 +1410,7 @@ function App() {
                   autoFocus
                 />
               </div>
-              
+
               <div className="flex justify-end space-x-2">
                 <button
                   onClick={handleCancelSaveConsultant}

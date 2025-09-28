@@ -13,6 +13,7 @@ import { SessionStatus } from '../types';
 export interface RealtimeSessionCallbacks {
   onConnectionChange?: (status: SessionStatus) => void;
   onAgentHandoff?: (agentName: string) => void;
+  onResponseComplete?: (itemId: string) => void;
 }
 
 export interface ConnectOptions {
@@ -21,6 +22,7 @@ export interface ConnectOptions {
   audioElement?: HTMLAudioElement;
   extraContext?: Record<string, any>;
   outputGuardrails?: any[];
+  voiceSpeed?: number;
 }
 
 export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
@@ -52,6 +54,8 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       }
       case "response.audio_transcript.done": {
         historyHandlers.handleTranscriptionCompleted(event);
+        // Notify that response is complete for audio speed adjustment
+        callbacks.onResponseComplete?.(event.item_id);
         break;
       }
       case "response.audio_transcript.delta": {
@@ -115,6 +119,7 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       audioElement,
       extraContext,
       outputGuardrails,
+      voiceSpeed = 1.0,
     }: ConnectOptions) => {
       if (sessionRef.current) return; // already connected
 
@@ -128,7 +133,13 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       const codecParam = codecParamRef.current;
       const audioFormat = audioFormatForCodec(codecParam);
 
-      sessionRef.current = new RealtimeSession(rootAgent, {
+      // Debug: Log voice speed value and full config
+      console.log('🎵 Voice Speed Debug:', voiceSpeed);
+      console.log('🎵 Voice Speed Type:', typeof voiceSpeed);
+      console.log('🎵 Voice Speed Valid:', voiceSpeed >= 0.25 && voiceSpeed <= 1.5);
+      console.log('🎵 Root Agent Voice:', rootAgent.voice);
+      
+      const sessionConfig = {
         transport: new OpenAIRealtimeWebRTC({
           audioElement,
           // Set preferred codec before offer creation
@@ -144,12 +155,33 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
           inputAudioTranscription: {
             model: 'gpt-4o-mini-transcribe',
           },
+          // Try the most likely correct structure for Realtime API
+          response: {
+            create: {
+              audio: {
+                speed: voiceSpeed,
+                voice: rootAgent.voice || 'sage',
+              },
+            },
+          },
         },
         outputGuardrails: outputGuardrails ?? [],
         context: extraContext ?? {},
-      });
+      };
+      
+      console.log('🎵 Full Session Config:', JSON.stringify(sessionConfig, null, 2));
+      console.log('🎵 Speed Config Specifically:', JSON.stringify(sessionConfig.config.response, null, 2));
+
+      sessionRef.current = new RealtimeSession(rootAgent, sessionConfig);
 
       await sessionRef.current.connect({ apiKey: ek });
+      
+      // Apply voice speed to the actual WebRTC audio element after connection
+      if (audioElement && voiceSpeed !== 1.0) {
+        console.log('🎵 Setting WebRTC audio element playbackRate to:', voiceSpeed);
+        audioElement.playbackRate = voiceSpeed;
+      }
+      
       updateStatus('CONNECTED');
     },
     [callbacks, updateStatus],

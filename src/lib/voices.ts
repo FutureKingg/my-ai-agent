@@ -11,50 +11,71 @@ export const voices: Voice[] = [
     id: 'openai-alloy',
     name: 'Alloy',
     voice: 'alloy',
-    description: '밝고 친근한',
-    gender: 'female'
+    description: '중립적이고 균형 잡힌',
+    gender: 'male'
   },
   {
     id: 'openai-echo',
     name: 'Echo',
     voice: 'echo',
-    description: '따뜻한',
-    gender: 'male'
-  },
-  {
-    id: 'openai-fable',
-    name: 'Fable',
-    voice: 'fable',
-    description: '영국식 억양',
+    description: '공명하고 깊은',
     gender: 'male'
   },
   {
     id: 'openai-onyx',
     name: 'Onyx',
     voice: 'onyx',
-    description: '깊고 강렬한',
+    description: '강하고 자신감 있는',
     gender: 'male'
   },
   {
     id: 'openai-nova',
     name: 'Nova',
     voice: 'nova',
-    description: '젊고 활기찬',
+    description: '밝고 표현력이 풍부한',
     gender: 'female'
   },
   {
     id: 'openai-sage',
     name: 'Sage',
     voice: 'sage',
-    description: '차분하고 전문적',
-    gender: 'female'
+    description: '침착하고 사려 깊은',
+    gender: 'male'
   },
   {
     id: 'openai-shimmer',
     name: 'Shimmer',
     voice: 'shimmer',
-    description: '부드럽고 매력적인',
+    description: '밝고 에너지가 넘치는',
     gender: 'female'
+  },
+  {
+    id: 'openai-ash',
+    name: 'Ash',
+    voice: 'ash',
+    description: '맑고 정확한 발음',
+    gender: 'female'
+  },
+  {
+    id: 'openai-ballad',
+    name: 'Ballad',
+    voice: 'ballad',
+    description: '부드럽고 멜로디컬한',
+    gender: 'male'
+  },
+  {
+    id: 'openai-coral',
+    name: 'Coral',
+    voice: 'coral',
+    description: '따뜻하고 친근한',
+    gender: 'female'
+  },
+  {
+    id: 'openai-verse',
+    name: 'Verse',
+    voice: 'verse',
+    description: '다재다능하고 표현력이 뛰어난',
+    gender: 'male'
   }
 ];
 

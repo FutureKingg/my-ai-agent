@@ -114,6 +114,7 @@ function App() {
   const [isConsultantSettingsOpen, setIsConsultantSettingsOpen] = useState<boolean>(false);
   const [consultantGreeting, setConsultantGreeting] = useState<string>("");
   const [consultantRole, setConsultantRole] = useState<string>("");
+  const [consultantInfo, setConsultantInfo] = useState<string>("");
   const [voiceGenderFilter, setVoiceGenderFilter] = useState<'all' | 'male' | 'female'>('all');
   const [userText, setUserText] = useState<string>("");
   const [isPTTActive, setIsPTTActive] = useState<boolean>(false);
@@ -208,7 +209,8 @@ function App() {
         // Apply selected voice to all agents
         const selectedVoice = getVoiceById(selectedVoiceId);
         agents.forEach(agent => {
-          agent.voice = selectedVoice.voice;
+          // Create new agent with updated voice
+          Object.assign(agent, { voice: selectedVoice.voice });
           
           // Apply custom consultant settings or use default prompts
           let customInstructions = "";
@@ -218,8 +220,12 @@ function App() {
           customInstructions += `인사말: ${greetingText}\n\n`;
           
           // Add role (use placeholder if empty)
-          const roleText = consultantRole.trim() || "당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다. 고객의 만족을 최우선으로 생각하며, 모든 질문에 대해 상세하고 정확한 답변을 제공합니다.";
-          customInstructions += `역할 및 정보: ${roleText}`;
+          const roleText = consultantRole.trim() || "당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다.";
+          customInstructions += `역할: ${roleText}\n\n`;
+          
+          // Add info (use placeholder if empty)
+          const infoText = consultantInfo.trim() || "운영시간: 오전 10시 - 오후 10시\n메뉴: 삼겹살 15,000원, 갈비 25,000원\n주차: 건물 지하 1층, 2시간 무료\n최대 예약 가능 인원: 8명";
+          customInstructions += `정보: ${infoText}`;
           
           // Always apply instructions (either custom or default)
           agent.instructions = customInstructions.trim();
@@ -354,7 +360,7 @@ function App() {
     if (sessionStatus === "CONNECTED" && selectedAgentConfigSet) {
       const selectedVoice = getVoiceById(newVoiceId);
       selectedAgentConfigSet.forEach(agent => {
-        agent.voice = selectedVoice.voice;
+        Object.assign(agent, { voice: selectedVoice.voice });
       });
       
       // Send session update to change voice
@@ -431,6 +437,10 @@ function App() {
     if (storedConsultantRole) {
       setConsultantRole(storedConsultantRole);
     }
+    const storedConsultantInfo = localStorage.getItem("consultantInfo");
+    if (storedConsultantInfo) {
+      setConsultantInfo(storedConsultantInfo);
+    }
   }, []);
 
   useEffect(() => {
@@ -459,6 +469,10 @@ function App() {
   useEffect(() => {
     localStorage.setItem("consultantRole", consultantRole);
   }, [consultantRole]);
+
+  useEffect(() => {
+    localStorage.setItem("consultantInfo", consultantInfo);
+  }, [consultantInfo]);
 
   // 성별 필터 변경 시 현재 선택된 목소리가 필터된 목록에 없으면 첫 번째 목소리로 변경
   useEffect(() => {
@@ -601,9 +615,9 @@ function App() {
 
         {/* 상담사 설정 사이드바 */}
         {isConsultantSettingsOpen && (
-          <div className="w-[480px] bg-white rounded-lg shadow-lg p-4 flex flex-col">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-800">상담사 역할 설정</h3>
+          <div className="w-1/3 bg-white rounded-lg shadow-lg flex flex-col h-full max-h-[80vh]">
+            <div className="flex justify-between items-center px-6 py-3 sticky top-0 z-10 text-base border-b bg-white rounded-t-xl">
+              <span className="font-semibold">상담사 역할 설정</span>
               <button
                 onClick={() => setIsConsultantSettingsOpen(false)}
                 className="text-gray-500 hover:text-gray-700 text-xl"
@@ -612,7 +626,7 @@ function App() {
               </button>
             </div>
             
-            <div className="flex-1 space-y-4">
+            <div className="flex-1 space-y-4 overflow-y-auto p-4" style={{ maxHeight: 'calc(80vh - 80px)' }}>
               {/* 상담사 목소리 설정 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -653,7 +667,7 @@ function App() {
                   </button>
                 </div>
 
-                <div className="relative inline-block voice-dropdown-container w-full">
+                  <div className="relative inline-block voice-dropdown-container w-full">
                   <button
                     onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
                     className="w-full appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none bg-white text-left"
@@ -713,36 +727,52 @@ function App() {
                   value={consultantGreeting}
                   onChange={(e) => setConsultantGreeting(e.target.value)}
                   placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '96px', maxHeight: '150px' }}
                 />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  역할 및 정보
+                  역할
                 </label>
                 <textarea
                   value={consultantRole}
                   onChange={(e) => setConsultantRole(e.target.value)}
-                  placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다. 고객의 만족을 최우선으로 생각하며, 모든 질문에 대해 상세하고 정확한 답변을 제공합니다."
-                  className="w-full h-48 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다."
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
                 />
               </div>
-              
-              <div className="flex justify-end space-x-2">
-                <button 
-                  onClick={handleCancelConsultantSettings}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
-                  취소
-                </button>
-                <button 
-                  onClick={handleSaveConsultantSettings}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  저장
-                </button>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  정보
+                </label>
+                <textarea
+                  value={consultantInfo}
+                  onChange={(e) => setConsultantInfo(e.target.value)}
+                  placeholder="운영시간: 오전 10시 - 오후 10시&#13;&#10;메뉴: 삼겹살 15,000원, 갈비 25,000원&#13;&#10;주차: 건물 지하 1층, 2시간 무료&#13;&#10;최대 예약 가능 인원: 8명"
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
+                />
               </div>
+            </div>
+            
+            {/* 저장/취소 버튼 - 스크롤 영역 밖에 고정 */}
+            <div className="flex justify-end space-x-2 py-2 px-4">
+              <button 
+                onClick={handleCancelConsultantSettings}
+                className="px-4 py-2 text-gray-600 hover:text-gray-800"
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveConsultantSettings}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                저장
+              </button>
             </div>
           </div>
         )}

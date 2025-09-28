@@ -73,6 +73,7 @@ function App() {
   >(null);
   const [selectedVoiceId, setSelectedVoiceId] = useState<string>("openai-sage");
   const [isVoiceDropdownOpen, setIsVoiceDropdownOpen] = useState<boolean>(false);
+  const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
 
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   // Ref to identify whether the latest agent switch came from an automatic handoff
@@ -143,6 +144,7 @@ function App() {
     info: string;
     storeName: string;
     voiceId: string;
+    voiceSpeed: number;
   }>>({});
   const [userText, setUserText] = useState<string>("");
 
@@ -477,7 +479,8 @@ function App() {
           role: consultantRole,
           info: consultantInfo,
           storeName: consultantStoreName,
-          voiceId: selectedVoiceId
+          voiceId: selectedVoiceId,
+          voiceSpeed: voiceSpeed
         };
         
         setSavedConsultants(prev => ({
@@ -504,7 +507,8 @@ function App() {
         role: consultantRole,
         info: consultantInfo,
         storeName: consultantStoreName,
-        voiceId: selectedVoiceId
+        voiceId: selectedVoiceId,
+        voiceSpeed: voiceSpeed
       };
       
       setSavedConsultants(prev => ({
@@ -660,6 +664,11 @@ function App() {
     if (storedConsultantStoreName) {
       setConsultantStoreName(storedConsultantStoreName);
     }
+    const storedVoiceSpeed = localStorage.getItem("voiceSpeed");
+    if (storedVoiceSpeed) {
+      const speed = parseFloat(storedVoiceSpeed);
+      setVoiceSpeed(Math.min(Math.max(speed, 0.5), 1.5)); // 0.5~1.5 범위로 제한
+    }
     const storedSelectedAgentConfig = localStorage.getItem("selectedAgentConfig");
     if (storedSelectedAgentConfig) {
       setSelectedAgentConfig(storedSelectedAgentConfig);
@@ -718,6 +727,10 @@ function App() {
   }, [consultantStoreName]);
 
   useEffect(() => {
+    localStorage.setItem("voiceSpeed", voiceSpeed.toString());
+  }, [voiceSpeed]);
+
+  useEffect(() => {
     localStorage.setItem("selectedAgentConfig", selectedAgentConfig);
     
     // 상담사 선택 시 자동 로딩
@@ -737,6 +750,7 @@ function App() {
         setConsultantInfo(consultant.info);
         setConsultantStoreName(consultant.storeName);
         setSelectedVoiceId(consultant.voiceId);
+        setVoiceSpeed(Math.min(Math.max(consultant.voiceSpeed || 1.0, 0.5), 1.5));
       }
     }
   }, [selectedAgentConfig]);
@@ -902,16 +916,75 @@ function App() {
         {isConsultantSettingsOpen && (
           <div className="w-1/3 bg-white rounded-lg shadow-lg flex flex-col h-full max-h-[80vh]">
             <div className="flex justify-between items-center px-6 py-3 sticky top-0 z-10 text-base border-b bg-white rounded-t-xl">
-              <span className="font-semibold">상담사 역할 설정</span>
+              <span className="font-semibold">상담사 설정</span>
                 <button
                   onClick={() => setIsConsultantSettingsOpen(false)}
                 className="text-gray-500 hover:text-gray-700 text-xl"
                 >
                 ×
                 </button>
-              </div>
+            </div>
             
             <div className="flex-1 space-y-4 overflow-y-auto p-4" style={{ maxHeight: 'calc(80vh - 80px)' }}>
+              {/* 업체명 설정 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  업체명
+                </label>
+                <input
+                  type="text"
+                  value={consultantStoreName || ""}
+                  onChange={(e) => setConsultantStoreName(e.target.value)}
+                  placeholder="예: 맛있는 고깃집, 따뜻한 카페 등"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              {/* 인사말 설정 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  인사말
+                </label>
+                <textarea
+                  value={consultantGreeting || ""}
+                  onChange={(e) => setConsultantGreeting(e.target.value)}
+                  placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
+                  className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '96px', maxHeight: '150px' }}
+                />
+              </div>
+
+              {/* 역할 설정 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  역할
+                </label>
+                <textarea
+                  value={consultantRole || ""}
+                  onChange={(e) => setConsultantRole(e.target.value)}
+                  placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다."
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
+                />
+              </div>
+
+              {/* 정보 설정 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  정보
+                </label>
+                <textarea
+                  value={consultantInfo || ""}
+                  onChange={(e) => setConsultantInfo(e.target.value)}
+                  placeholder={`운영시간: 오전 10시 - 오후 10시
+메뉴: 삼겹살 15,000원, 갈비 25,000원
+주차: 건물 지하 1층, 2시간 무료
+최대 예약 가능 인원: 8명`}
+                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
+                />
+              </div>
+
               {/* 상담사 목소리 설정 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1004,60 +1077,57 @@ function App() {
                 </div>
               </div>
 
+              {/* 목소리 속도 설정 */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  인사말
+                  목소리 속도
                 </label>
-                <textarea
-                  value={consultantGreeting || ""}
-                  onChange={(e) => setConsultantGreeting(e.target.value)}
-                  placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
-                  className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ overflowY: 'auto', minHeight: '96px', maxHeight: '150px' }}
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  역할
-                </label>
-                <textarea
-                  value={consultantRole || ""}
-                  onChange={(e) => setConsultantRole(e.target.value)}
-                  placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다."
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
-                />
+                <div className="relative">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative flex-1">
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="1.5"
+                        step="0.1"
+                        value={voiceSpeed}
+                        onChange={(e) => setVoiceSpeed(parseFloat(e.target.value))}
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                      />
+                      {/* 슬라이더 기준 라벨 */}
+                      <div className="absolute top-8 left-0 w-full">
+                        <div className="relative text-xs text-gray-500">
+                          <span 
+                            className="absolute left-0 cursor-pointer hover:text-gray-700 transition-colors"
+                            onClick={() => setVoiceSpeed(0.5)}
+                            title="느린 속도로 설정"
+                          >
+                            느림
+                          </span>
+                          <span 
+                            className="absolute left-1/2 transform -translate-x-1/2 cursor-pointer hover:text-gray-700 transition-colors"
+                            onClick={() => setVoiceSpeed(1.0)}
+                            title="표준 속도로 설정"
+                          >
+                            표준
+                          </span>
+                          <span 
+                            className="absolute right-0 cursor-pointer hover:text-gray-700 transition-colors"
+                            onClick={() => setVoiceSpeed(1.5)}
+                            title="빠른 속도로 설정"
+                          >
+                            빠름
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <span className="text-sm font-medium text-gray-700 min-w-[3rem]">
+                      {voiceSpeed}x
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  업체명
-                </label>
-                <input
-                  type="text"
-                  value={consultantStoreName || ""}
-                  onChange={(e) => setConsultantStoreName(e.target.value)}
-                  placeholder="예: 맛있는 고깃집, 따뜻한 카페 등"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  정보
-                </label>
-                <textarea
-                  value={consultantInfo || ""}
-                  onChange={(e) => setConsultantInfo(e.target.value)}
-                  placeholder={`운영시간: 오전 10시 - 오후 10시
-메뉴: 삼겹살 15,000원, 갈비 25,000원
-주차: 건물 지하 1층, 2시간 무료
-최대 예약 가능 인원: 8명`}
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
-                />
-              </div>
             </div>
             
             {/* 저장/취소 버튼 - 스크롤 영역 밖에 고정 */}

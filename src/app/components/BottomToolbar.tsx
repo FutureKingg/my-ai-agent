@@ -84,14 +84,26 @@ function BottomToolbar({
             눌러서 말하기
           </label>
           <button
-            onMouseDown={handleTalkButtonDown}
-            onMouseUp={handleTalkButtonUp}
-            onTouchStart={handleTalkButtonDown}
-            onTouchEnd={handleTalkButtonUp}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleTalkButtonDown();
+            }}
+            onMouseUp={(e) => {
+              e.preventDefault();
+              handleTalkButtonUp();
+            }}
+            onTouchStart={(e) => {
+              e.preventDefault();
+              handleTalkButtonDown();
+            }}
+            onTouchEnd={(e) => {
+              e.preventDefault();
+              handleTalkButtonUp();
+            }}
             disabled={!isPTTActive}
             className={
               (isPTTUserSpeaking ? "bg-gray-300" : "bg-gray-200") +
-              " py-1 px-4 cursor-pointer rounded-md" +
+              " py-1 px-4 cursor-pointer rounded-md select-none" +
               (!isPTTActive ? " bg-gray-100 text-gray-400" : "")
             }
           >

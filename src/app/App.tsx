@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { v4 as uuidv4 } from "uuid";
 
@@ -27,15 +27,18 @@ import { chatSupervisorScenario } from "@/app/agentConfigs/chatSupervisor";
 import { customerServiceRetailCompanyName } from "@/app/agentConfigs/customerServiceRetail";
 import { chatSupervisorCompanyName } from "@/app/agentConfigs/chatSupervisor";
 import { simpleHandoffScenario } from "@/app/agentConfigs/simpleHandoff";
+import { savedConsultantScenario, savedConsultantCompanyName } from "@/app/agentConfigs/savedConsultant";
 
 // Voice configs
 import { voices, getVoiceById } from "@/lib/voices";
 
-// Map used by connect logic for scenarios defined via the SDK.
-const sdkScenarioMap: Record<string, RealtimeAgent[]> = {
+// Base scenarios - these are static
+const baseScenarioMap: Record<string, RealtimeAgent[]> = {
+  newConsultant: savedConsultantScenario,
   simpleHandoff: simpleHandoffScenario,
   customerServiceRetail: customerServiceRetailScenario,
   chatSupervisor: chatSupervisorScenario,
+  savedConsultant: savedConsultantScenario,
 };
 
 import useAudioDownload from "./hooks/useAudioDownload";
@@ -112,11 +115,48 @@ function App() {
   const [isEventsPaneExpanded, setIsEventsPaneExpanded] =
     useState<boolean>(true);
   const [isConsultantSettingsOpen, setIsConsultantSettingsOpen] = useState<boolean>(false);
+  const [isScenarioNameModalOpen, setIsScenarioNameModalOpen] = useState<boolean>(false);
+  const [editingScenarioKey, setEditingScenarioKey] = useState<string>("");
+  const [newScenarioName, setNewScenarioName] = useState<string>("");
+  const [isSaveConsultantModalOpen, setIsSaveConsultantModalOpen] = useState<boolean>(false);
+  const [consultantSaveName, setConsultantSaveName] = useState<string>("");
+  const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState<boolean>(false);
+  const [deletingScenarioKey, setDeletingScenarioKey] = useState<string>("");
+  const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
   const [consultantGreeting, setConsultantGreeting] = useState<string>("");
   const [consultantRole, setConsultantRole] = useState<string>("");
   const [consultantInfo, setConsultantInfo] = useState<string>("");
+  const [consultantStoreName, setConsultantStoreName] = useState<string>("");
   const [voiceGenderFilter, setVoiceGenderFilter] = useState<'all' | 'male' | 'female'>('all');
+  const [selectedAgentConfig, setSelectedAgentConfig] = useState<string>("newConsultant");
+  const [scenarioNames, setScenarioNames] = useState<Record<string, string>>({
+    newConsultant: "새 상담사",
+    chatSupervisor: "채팅 관리자",
+    customerServiceRetail: "고객 서비스 소매", 
+    simpleHandoff: "간단한 인수인계",
+    savedConsultant: "저장된 상담사"
+  });
+  const [savedConsultants, setSavedConsultants] = useState<Record<string, {
+    name: string;
+    greeting: string;
+    role: string;
+    info: string;
+    storeName: string;
+    voiceId: string;
+  }>>({});
   const [userText, setUserText] = useState<string>("");
+
+  // Create dynamic scenario map including saved consultants
+  const sdkScenarioMap = useMemo(() => {
+    const dynamicMap = { ...baseScenarioMap };
+    
+    // Add saved consultants as scenarios
+    Object.keys(savedConsultants).forEach(consultantId => {
+      dynamicMap[consultantId] = savedConsultantScenario;
+    });
+    
+    return dynamicMap;
+  }, [savedConsultants]);
   const [isPTTActive, setIsPTTActive] = useState<boolean>(false);
   const [isPTTUserSpeaking, setIsPTTUserSpeaking] = useState<boolean>(false);
   const [isAudioPlaybackEnabled, setIsAudioPlaybackEnabled] = useState<boolean>(
@@ -144,8 +184,8 @@ function App() {
 
   useEffect(() => {
     let finalAgentConfig = searchParams.get("agentConfig");
-    if (!finalAgentConfig || !allAgentSets[finalAgentConfig]) {
-      finalAgentConfig = defaultAgentSetKey;
+    if (!finalAgentConfig || !sdkScenarioMap[finalAgentConfig]) {
+      finalAgentConfig = "savedConsultant";
       const url = new URL(window.location.toString());
       url.searchParams.set("agentConfig", finalAgentConfig);
       window.location.replace(url.toString());
@@ -175,7 +215,7 @@ function App() {
     if (sessionStatus === "CONNECTED") {
       updateSession();
     }
-  }, [isPTTActive]);
+  }, [isPTTActive, sessionStatus]);
 
   const fetchEphemeralKey = async (): Promise<string | null> => {
     logClientEvent({ url: "/session" }, "fetch_session_token_request");
@@ -194,60 +234,96 @@ function App() {
   };
 
   const connectToRealtime = async () => {
-    const agentSetKey = searchParams.get("agentConfig") || "default";
+    const agentSetKey = selectedAgentConfig;
     if (sdkScenarioMap[agentSetKey]) {
-      if (sessionStatus !== "DISCONNECTED") return;
-      setSessionStatus("CONNECTING");
+    if (sessionStatus !== "DISCONNECTED") return;
+    setSessionStatus("CONNECTING");
 
-      try {
-        const EPHEMERAL_KEY = await fetchEphemeralKey();
-        if (!EPHEMERAL_KEY) return;
+    try {
+      const EPHEMERAL_KEY = await fetchEphemeralKey();
+      if (!EPHEMERAL_KEY) return;
 
         // Use the first agent as root (no reordering needed)
         const agents = [...sdkScenarioMap[agentSetKey]];
 
-        // Apply selected voice to all agents
+        // Apply selected voice and COMPLETELY REPLACE instructions with user prompts
         const selectedVoice = getVoiceById(selectedVoiceId);
         agents.forEach(agent => {
           // Create new agent with updated voice
           Object.assign(agent, { voice: selectedVoice.voice });
           
-          // Apply custom consultant settings or use default prompts
+          // COMPLETELY REPLACE agent instructions with user's custom prompts
           let customInstructions = "";
           
-          // Add greeting (use placeholder if empty)
-          const greetingText = consultantGreeting.trim() || "안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?";
-          customInstructions += `인사말: ${greetingText}\n\n`;
+          // Check if this is a saved consultant
+          const savedConsultant = savedConsultants[agentSetKey];
           
-          // Add role (use placeholder if empty)
-          const roleText = consultantRole.trim() || "당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다.";
-          customInstructions += `역할: ${roleText}\n\n`;
+          if (savedConsultant) {
+            // Use saved consultant settings
+            const greetingText = savedConsultant.greeting.trim() || "안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?";
+            customInstructions += `SYSTEM: 당신은 상담원입니다. 첫 번째 메시지로 반드시 다음 문장을 정확히 그대로 말해야 합니다:
+
+"${greetingText}"
+
+이 문장 외에는 다른 어떤 단어도 추가하지 마세요. 변형하지 마세요. 정확히 이 문장만 말하세요.\n\n`;
+            
+            const roleText = (savedConsultant.role || "").trim() || "당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다.";
+            customInstructions += `**역할 및 성격**: ${roleText}\n\n`;
+            
+            const storeNameText = (savedConsultant.storeName || "").trim() || "";
+            const storeNameSection = storeNameText ? `**가게명**: ${storeNameText}\n\n` : "";
+            customInstructions += storeNameSection;
+            
+            const infoText = (savedConsultant.info || "").trim() || "운영시간: 오전 10시 - 오후 10시\n메뉴: 삼겹살 15,000원, 갈비 25,000원\n주차: 건물 지하 1층, 2시간 무료\n최대 예약 가능 인원: 8명";
+            customInstructions += `**참고 정보**: ${infoText}`;
+          } else {
+            // Use current form settings (for new consultants)
+            const greetingText = (consultantGreeting || "").trim() || "안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?";
+            customInstructions += `SYSTEM: 당신은 상담원입니다. 첫 번째 메시지로 반드시 다음 문장을 정확히 그대로 말해야 합니다:
+
+"${greetingText}"
+
+이 문장 외에는 다른 어떤 단어도 추가하지 마세요. 변형하지 마세요. 정확히 이 문장만 말하세요.\n\n`;
+            
+            const roleText = (consultantRole || "").trim() || "당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다.";
+            customInstructions += `**역할 및 성격**: ${roleText}\n\n`;
+            
+            const storeNameText = (consultantStoreName || "").trim() || "";
+            const storeNameSection = storeNameText ? `**가게명**: ${storeNameText}\n\n` : "";
+            customInstructions += storeNameSection;
+            
+            const infoText = (consultantInfo || "").trim() || "운영시간: 오전 10시 - 오후 10시\n메뉴: 삼겹살 15,000원, 갈비 25,000원\n주차: 건물 지하 1층, 2시간 무료\n최대 예약 가능 인원: 8명";
+            customInstructions += `**참고 정보**: ${infoText}`;
+          }
           
-          // Add info (use placeholder if empty)
-          const infoText = consultantInfo.trim() || "운영시간: 오전 10시 - 오후 10시\n메뉴: 삼겹살 15,000원, 갈비 25,000원\n주차: 건물 지하 1층, 2시간 무료\n최대 예약 가능 인원: 8명";
-          customInstructions += `정보: ${infoText}`;
-          
-          // Always apply instructions (either custom or default)
+          // COMPLETELY REPLACE instructions - no scenario instructions remain
           agent.instructions = customInstructions.trim();
+          
+          // Debug: Log the final instructions
+          console.log('=== FINAL AGENT INSTRUCTIONS ===');
+          console.log(agent.instructions);
+          console.log('=== END INSTRUCTIONS ===');
         });
 
         const companyName = agentSetKey === 'customerServiceRetail'
           ? customerServiceRetailCompanyName
+          : agentSetKey === 'savedConsultant'
+          ? savedConsultantCompanyName
           : chatSupervisorCompanyName;
         const guardrail = createModerationGuardrail(companyName);
 
-        await connect({
-          getEphemeralKey: async () => EPHEMERAL_KEY,
+      await connect({
+        getEphemeralKey: async () => EPHEMERAL_KEY,
           initialAgents: agents,
-          audioElement: sdkAudioElement,
-          outputGuardrails: [guardrail],
-          extraContext: {
-            addTranscriptBreadcrumb,
-          },
-        });
-      } catch (err) {
-        console.error("Error connecting via SDK:", err);
-        setSessionStatus("DISCONNECTED");
+        audioElement: sdkAudioElement,
+        outputGuardrails: [guardrail],
+        extraContext: {
+          addTranscriptBreadcrumb,
+        },
+      });
+    } catch (err) {
+      console.error("Error connecting via SDK:", err);
+      setSessionStatus("DISCONNECTED");
       }
       return;
     }
@@ -317,18 +393,15 @@ function App() {
   };
 
   const handleTalkButtonDown = () => {
-    if (sessionStatus !== 'CONNECTED') return;
-    interrupt();
+    if (sessionStatus !== 'CONNECTED' || !isPTTActive || isPTTUserSpeaking) return;
 
+    interrupt();
     setIsPTTUserSpeaking(true);
     sendClientEvent({ type: 'input_audio_buffer.clear' }, 'clear PTT buffer');
-
-    // No placeholder; we'll rely on server transcript once ready.
   };
 
   const handleTalkButtonUp = () => {
-    if (sessionStatus !== 'CONNECTED' || !isPTTUserSpeaking)
-      return;
+    if (sessionStatus !== 'CONNECTED' || !isPTTActive || !isPTTUserSpeaking) return;
 
     setIsPTTUserSpeaking(false);
     sendClientEvent({ type: 'input_audio_buffer.commit' }, 'commit PTT');
@@ -346,9 +419,7 @@ function App() {
 
   const handleAgentChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newAgentConfig = e.target.value;
-    const url = new URL(window.location.toString());
-    url.searchParams.set("agentConfig", newAgentConfig);
-    window.location.replace(url.toString());
+    setSelectedAgentConfig(newAgentConfig);
   };
 
 
@@ -392,9 +463,153 @@ function App() {
   };
 
   const handleSaveConsultantSettings = () => {
-    console.log('상담사 설정 저장됨 - 인사말:', consultantGreeting, '역할:', consultantRole);
-    // 저장 후 사이드바 닫기
-    setIsConsultantSettingsOpen(false);
+    // 새 상담사인 경우에만 이름 입력 모달 열기
+    if (selectedAgentConfig === "newConsultant") {
+      setConsultantSaveName("");
+      setIsSaveConsultantModalOpen(true);
+    } else if (selectedAgentConfig.startsWith("consultant_")) {
+      // 저장된 상담사인 경우 바로 덮어쓰기
+      const existingConsultant = savedConsultants[selectedAgentConfig];
+      if (existingConsultant) {
+        const updatedConsultant = {
+          ...existingConsultant,
+          greeting: consultantGreeting,
+          role: consultantRole,
+          info: consultantInfo,
+          storeName: consultantStoreName,
+          voiceId: selectedVoiceId
+        };
+        
+        setSavedConsultants(prev => ({
+          ...prev,
+          [selectedAgentConfig]: updatedConsultant
+        }));
+        
+        showToast(`"${existingConsultant.name}" 상담사 설정이 업데이트되었습니다.`, 'success');
+      }
+    }
+  };
+
+  const handleConfirmSaveConsultant = () => {
+    if (consultantSaveName.trim()) {
+      // Check if a consultant with the same name already exists
+      const existingConsultantId = Object.keys(savedConsultants).find(id => 
+        savedConsultants[id].name === consultantSaveName.trim()
+      );
+      
+      const consultantId = existingConsultantId || `consultant_${Date.now()}`;
+      const newConsultant = {
+        name: consultantSaveName.trim(),
+        greeting: consultantGreeting,
+        role: consultantRole,
+        info: consultantInfo,
+        storeName: consultantStoreName,
+        voiceId: selectedVoiceId
+      };
+      
+      setSavedConsultants(prev => ({
+        ...prev,
+        [consultantId]: newConsultant
+      }));
+      
+      // 시나리오 이름에도 추가/업데이트
+      setScenarioNames(prev => ({
+        ...prev,
+        [consultantId]: consultantSaveName.trim()
+      }));
+      
+      // 자동으로 저장된 상담사 선택
+      setSelectedAgentConfig(consultantId);
+      
+      // Show confirmation message
+      if (existingConsultantId) {
+        showToast(`"${consultantSaveName.trim()}" 상담사 설정이 업데이트되었습니다.`, 'success');
+      } else {
+        showToast(`"${consultantSaveName.trim()}" 상담사가 저장되었습니다.`, 'success');
+      }
+    }
+    
+    setIsSaveConsultantModalOpen(false);
+  };
+
+  const handleCancelSaveConsultant = () => {
+    setIsSaveConsultantModalOpen(false);
+  };
+
+  const handleEditScenarioName = (scenarioKey: string) => {
+    setEditingScenarioKey(scenarioKey);
+    setNewScenarioName(scenarioNames[scenarioKey] || scenarioKey);
+    setIsScenarioNameModalOpen(true);
+  };
+
+  const handleSaveScenarioName = () => {
+    if (editingScenarioKey && newScenarioName.trim()) {
+      setScenarioNames(prev => ({
+        ...prev,
+        [editingScenarioKey]: newScenarioName.trim()
+      }));
+    }
+    setIsScenarioNameModalOpen(false);
+    setEditingScenarioKey("");
+    setNewScenarioName("");
+  };
+
+  const handleDeleteScenarioName = (scenarioKey: string) => {
+    // 커스텀 삭제 확인 모달 열기
+    setDeletingScenarioKey(scenarioKey);
+    setIsDeleteConfirmModalOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    const scenarioKey = deletingScenarioKey;
+    
+    // 저장된 상담사인 경우 savedConsultants에서도 삭제
+    if (scenarioKey.startsWith('consultant_')) {
+      setSavedConsultants(prev => {
+        const newConsultants = { ...prev };
+        delete newConsultants[scenarioKey];
+        localStorage.setItem('savedConsultants', JSON.stringify(newConsultants));
+        return newConsultants;
+      });
+    }
+    
+    // 현재 선택된 상담사가 삭제되는 상담사라면 새 상담사로 변경
+    if (selectedAgentConfig === scenarioKey) {
+      setSelectedAgentConfig('newConsultant');
+    }
+    
+    setScenarioNames(prev => {
+      const newNames = { ...prev };
+      delete newNames[scenarioKey];
+      localStorage.setItem('scenarioNames', JSON.stringify(newNames));
+      return newNames;
+    });
+    
+    showToast(`"${scenarioNames[scenarioKey] || scenarioKey}" 상담사가 삭제되었습니다.`, 'success');
+    
+    // 모달 닫기
+    setIsDeleteConfirmModalOpen(false);
+    setIsScenarioNameModalOpen(false);
+    setDeletingScenarioKey("");
+  };
+
+  const handleCancelDelete = () => {
+    setIsDeleteConfirmModalOpen(false);
+    setDeletingScenarioKey("");
+  };
+
+  // 토스트 알림 함수
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(null);
+    }, 3000);
+  };
+
+  const handleCancelScenarioNameEdit = () => {
+    setIsScenarioNameModalOpen(false);
+    setEditingScenarioKey("");
+    setNewScenarioName("");
   };
 
   const handleCancelConsultantSettings = () => {
@@ -441,6 +656,30 @@ function App() {
     if (storedConsultantInfo) {
       setConsultantInfo(storedConsultantInfo);
     }
+    const storedConsultantStoreName = localStorage.getItem("consultantStoreName");
+    if (storedConsultantStoreName) {
+      setConsultantStoreName(storedConsultantStoreName);
+    }
+    const storedSelectedAgentConfig = localStorage.getItem("selectedAgentConfig");
+    if (storedSelectedAgentConfig) {
+      setSelectedAgentConfig(storedSelectedAgentConfig);
+    }
+    const storedScenarioNames = localStorage.getItem("scenarioNames");
+    if (storedScenarioNames) {
+      try {
+        setScenarioNames(JSON.parse(storedScenarioNames));
+      } catch (e) {
+        console.error("Failed to parse scenario names:", e);
+      }
+    }
+    const storedSavedConsultants = localStorage.getItem("savedConsultants");
+    if (storedSavedConsultants) {
+      try {
+        setSavedConsultants(JSON.parse(storedSavedConsultants));
+      } catch (e) {
+        console.error("Failed to parse saved consultants:", e);
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -473,6 +712,42 @@ function App() {
   useEffect(() => {
     localStorage.setItem("consultantInfo", consultantInfo);
   }, [consultantInfo]);
+
+  useEffect(() => {
+    localStorage.setItem("consultantStoreName", consultantStoreName);
+  }, [consultantStoreName]);
+
+  useEffect(() => {
+    localStorage.setItem("selectedAgentConfig", selectedAgentConfig);
+    
+    // 상담사 선택 시 자동 로딩
+    if (selectedAgentConfig === "newConsultant") {
+      // 새 상담사 선택 시 필드 초기화
+      setConsultantGreeting("");
+      setConsultantRole("");
+      setConsultantInfo("");
+      setConsultantStoreName("");
+      setSelectedVoiceId("alloy");
+    } else if (selectedAgentConfig.startsWith("consultant_")) {
+      // 저장된 상담사 선택 시 해당 상담사 설정 로드
+      const consultant = savedConsultants[selectedAgentConfig];
+      if (consultant) {
+        setConsultantGreeting(consultant.greeting);
+        setConsultantRole(consultant.role);
+        setConsultantInfo(consultant.info);
+        setConsultantStoreName(consultant.storeName);
+        setSelectedVoiceId(consultant.voiceId);
+      }
+    }
+  }, [selectedAgentConfig]);
+
+  useEffect(() => {
+    localStorage.setItem("scenarioNames", JSON.stringify(scenarioNames));
+  }, [scenarioNames]);
+
+  useEffect(() => {
+    localStorage.setItem("savedConsultants", JSON.stringify(savedConsultants));
+  }, [savedConsultants]);
 
   // 성별 필터 변경 시 현재 선택된 목소리가 필터된 목록에 없으면 첫 번째 목소리로 변경
   useEffect(() => {
@@ -550,7 +825,7 @@ function App() {
     };
   }, [sessionStatus]);
 
-  const agentSetKey = searchParams.get("agentConfig") || "default";
+  const agentSetKey = selectedAgentConfig;
 
   return (
     <div className="text-base flex flex-col h-screen bg-gray-100 text-gray-800 relative">
@@ -573,31 +848,41 @@ function App() {
           </div>
         </div>
         <div className="flex items-center">
-          <label className="flex items-center text-base gap-1 mr-2 font-medium">
-            시나리오
-          </label>
-          <div className="relative inline-block">
-            <select
+            <label className="flex items-center text-base gap-1 mr-2 font-medium">
+            저장된 상담사
+            </label>
+            <div className="relative inline-block">
+              <select
               value={agentSetKey}
               onChange={handleAgentChange}
               className="appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none"
             >
-              {Object.keys(allAgentSets).map((agentKey) => (
-                <option key={agentKey} value={agentKey}>
-                  {agentKey}
-                </option>
-              ))}
-            </select>
-            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
+              {Object.keys(sdkScenarioMap).map((agentKey) => {
+                const displayName = scenarioNames[agentKey] || agentKey;
+                return (
+                  <option key={agentKey} value={agentKey}>
+                    {displayName}
+                  </option>
+                );
+              })}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path
-                  fillRule="evenodd"
-                  d="M5.23 7.21a.75.75 0 011.06.02L10 10.44l3.71-3.21a.75.75 0 111.04 1.08l-4.25 3.65a.75.75 0 01-1.04 0L5.21 8.27a.75.75 0 01.02-1.06z"
-                  clipRule="evenodd"
-                />
-              </svg>
+                  <path
+                    fillRule="evenodd"
+                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.44l3.71-3.21a.75.75 0 111.04 1.08l-4.25 3.65a.75.75 0 01-1.04 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </div>
             </div>
-          </div>
+          <button
+            onClick={() => handleEditScenarioName(agentSetKey)}
+            className="ml-2 px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+            title="시나리오 이름 편집"
+          >
+            편집
+          </button>
 
         </div>
       </div>
@@ -612,19 +897,19 @@ function App() {
             sessionStatus === "CONNECTED"
           }
         />
-
+        
         {/* 상담사 설정 사이드바 */}
         {isConsultantSettingsOpen && (
           <div className="w-1/3 bg-white rounded-lg shadow-lg flex flex-col h-full max-h-[80vh]">
             <div className="flex justify-between items-center px-6 py-3 sticky top-0 z-10 text-base border-b bg-white rounded-t-xl">
               <span className="font-semibold">상담사 역할 설정</span>
-              <button
-                onClick={() => setIsConsultantSettingsOpen(false)}
+                <button
+                  onClick={() => setIsConsultantSettingsOpen(false)}
                 className="text-gray-500 hover:text-gray-700 text-xl"
-              >
+                >
                 ×
-              </button>
-            </div>
+                </button>
+              </div>
             
             <div className="flex-1 space-y-4 overflow-y-auto p-4" style={{ maxHeight: 'calc(80vh - 80px)' }}>
               {/* 상담사 목소리 설정 */}
@@ -665,8 +950,8 @@ function App() {
                   >
                     여성
                   </button>
-                </div>
-
+            </div>
+            
                   <div className="relative inline-block voice-dropdown-container w-full">
                   <button
                     onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
@@ -693,8 +978,8 @@ function App() {
                         clipRule="evenodd"
                       />
                     </svg>
-                  </div>
-                  
+              </div>
+              
                   {/* 드롭다운 메뉴 */}
                   {isVoiceDropdownOpen && (
                     <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
@@ -724,7 +1009,7 @@ function App() {
                   인사말
                 </label>
                 <textarea
-                  value={consultantGreeting}
+                  value={consultantGreeting || ""}
                   onChange={(e) => setConsultantGreeting(e.target.value)}
                   placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
                   className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -737,7 +1022,7 @@ function App() {
                   역할
                 </label>
                 <textarea
-                  value={consultantRole}
+                  value={consultantRole || ""}
                   onChange={(e) => setConsultantRole(e.target.value)}
                   placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다."
                   className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -747,12 +1032,28 @@ function App() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
+                  업체명
+                </label>
+                <input
+                  type="text"
+                  value={consultantStoreName || ""}
+                  onChange={(e) => setConsultantStoreName(e.target.value)}
+                  placeholder="예: 맛있는 고깃집, 따뜻한 카페 등"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   정보
                 </label>
                 <textarea
-                  value={consultantInfo}
+                  value={consultantInfo || ""}
                   onChange={(e) => setConsultantInfo(e.target.value)}
-                  placeholder="운영시간: 오전 10시 - 오후 10시&#13;&#10;메뉴: 삼겹살 15,000원, 갈비 25,000원&#13;&#10;주차: 건물 지하 1층, 2시간 무료&#13;&#10;최대 예약 가능 인원: 8명"
+                  placeholder={`운영시간: 오전 10시 - 오후 10시
+메뉴: 삼겹살 15,000원, 갈비 25,000원
+주차: 건물 지하 1층, 2시간 무료
+최대 예약 가능 인원: 8명`}
                   className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
                 />
@@ -772,6 +1073,166 @@ function App() {
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
               >
                 저장
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 삭제 확인 모달 */}
+        {isDeleteConfirmModalOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCancelDelete();
+              }
+            }}
+          >
+            <div className="bg-white rounded-lg p-6 w-96">
+              <h3 className="text-lg font-semibold mb-4 text-red-600">상담사 삭제 확인</h3>
+              
+              <div className="mb-6">
+                <p className="text-gray-700">
+                  <span className="font-semibold">"{scenarioNames[deletingScenarioKey] || deletingScenarioKey}"</span> 상담사를 삭제하시겠습니까?
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  삭제된 상담사는 복구할 수 없습니다.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={handleCancelDelete}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleConfirmDelete}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 상담사 저장 모달 */}
+        {isSaveConsultantModalOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCancelSaveConsultant();
+              }
+            }}
+          >
+            <div className="bg-white rounded-lg p-6 w-96">
+              <h3 className="text-lg font-semibold mb-4">상담사 저장</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  상담사 이름
+                </label>
+                <input
+                  type="text"
+                  value={consultantSaveName || ""}
+                  onChange={(e) => setConsultantSaveName(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="예: 고깃집 상담사, 카페 상담사"
+                  autoFocus
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-2">
+                <button
+                  onClick={handleCancelSaveConsultant}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleConfirmSaveConsultant}
+                  disabled={!consultantSaveName.trim()}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 시나리오 이름 편집 모달 */}
+        {isScenarioNameModalOpen && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                handleCancelScenarioNameEdit();
+              }
+            }}
+          >
+            <div className="bg-white rounded-lg p-6 w-96">
+              <h3 className="text-lg font-semibold mb-4">시나리오 이름 편집</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  시나리오 이름
+                </label>
+                <input
+                  type="text"
+                  value={newScenarioName || ""}
+                  onChange={(e) => setNewScenarioName(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="시나리오 이름을 입력하세요"
+                  autoFocus
+                />
+              </div>
+
+              <div className="flex justify-between">
+                <button
+                  onClick={handleDeleteScenarioName.bind(null, editingScenarioKey)}
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  삭제
+                </button>
+                <div className="flex space-x-2">
+                <button
+                    onClick={handleCancelScenarioNameEdit}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSaveScenarioName}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  저장
+                </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 토스트 알림 */}
+        {toast && (
+          <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[70] px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ease-in-out ${
+            toast.type === 'success' 
+              ? 'bg-green-500 text-white' 
+              : toast.type === 'error' 
+              ? 'bg-red-500 text-white' 
+              : 'bg-blue-500 text-white'
+          }`}>
+            <div className="flex items-center space-x-2">
+              <span>{toast.message}</span>
+              <button 
+                onClick={() => setToast(null)}
+                className="ml-2 text-white hover:text-gray-200"
+              >
+                ×
               </button>
             </div>
           </div>

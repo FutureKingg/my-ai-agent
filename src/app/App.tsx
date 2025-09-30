@@ -1149,95 +1149,112 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
   const agentSetKey = selectedAgentConfig;
 
   return (
-    <div className="text-base flex flex-col h-screen bg-gray-100 text-gray-800 relative">
-      <div className="p-5 text-lg font-semibold flex justify-between items-center">
-        <div
-          className="flex items-center cursor-pointer"
-          onClick={() => window.location.reload()}
-        >
-          <div>
-            <Image
-              src="/openai-logomark.svg"
-              alt="OpenAI Logo"
-              width={20}
-              height={20}
-              className="mr-2"
-            />
-          </div>
-          <div>
-            AI 상담사 테스트
-          </div>
-        </div>
-        <div className="flex items-center">
-            <label className="flex items-center text-base gap-1 mr-2 font-medium">
-            저장된 상담사
-            </label>
-            <div className="relative inline-block">
-              <select
-              value={agentSetKey}
-              onChange={handleAgentChange}
-              className="appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none"
+    <div className="text-base flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white relative">
+      {/* Navigation Header */}
+      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 px-6 py-3">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => window.location.href = '/'}
+              className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center hover:from-blue-600 hover:to-purple-700 transition-all cursor-pointer"
+              title="홈으로 이동"
             >
-              {Object.keys(sdkScenarioMap).map((agentKey) => {
-                const displayName = scenarioNames[agentKey] || agentKey;
-                return (
-                  <option key={agentKey} value={agentKey}>
-                    {displayName}
-                  </option>
-                );
-              })}
-              </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path
-                    fillRule="evenodd"
-                    d="M5.23 7.21a.75.75 0 011.06.02L10 10.44l3.71-3.21a.75.75 0 111.04 1.08l-4.25 3.65a.75.75 0 01-1.04 0L5.21 8.27a.75.75 0 01.02-1.06z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+              <Image
+                src="/openai-logomark.svg"
+                alt="OpenAI Logo"
+                width={16}
+                height={16}
+                className="filter brightness-0 invert"
+              />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-white">AI 상담사 테스트</h1>
+              <p className="text-xs text-gray-300">실시간 AI 통화 시뮬레이션</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-300">
+                상담사 선택
+              </label>
+              <div className="relative">
+                <select
+                  value={agentSetKey}
+                  onChange={handleAgentChange}
+                  className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {Object.keys(sdkScenarioMap).map((agentKey) => {
+                    const displayName = scenarioNames[agentKey] || agentKey;
+                    return (
+                      <option key={agentKey} value={agentKey} className="bg-slate-800 text-white">
+                        {displayName}
+                      </option>
+                    );
+                  })}
+                </select>
+                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-300">
+                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path
+                      fillRule="evenodd"
+                      d="M5.23 7.21a.75.75 0 011.06.02L10 10.44l3.71-3.21a.75.75 0 111.04 1.08l-4.25 3.65a.75.75 0 01-1.04 0L5.21 8.27a.75.75 0 01.02-1.06z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                </div>
               </div>
             </div>
-          {agentSetKey !== "newConsultant" && (
-            <button
-              onClick={() => handleEditScenarioName(agentSetKey)}
-              className="ml-2 px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-              title="시나리오 이름 편집"
-            >
-              편집
-            </button>
-          )}
-
+            
+            {agentSetKey !== "newConsultant" && (
+              <button
+                onClick={() => handleEditScenarioName(agentSetKey)}
+                className="px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg text-sm hover:bg-white/20 transition-all"
+                title="시나리오 이름 편집"
+              >
+                편집
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-1 gap-2 px-2 overflow-hidden relative">
-        <Transcript
-          userText={userText}
-          setUserText={setUserText}
-          onSendMessage={handleSendTextMessage}
-          downloadRecording={downloadRecording}
-          canSend={
-            sessionStatus === "CONNECTED"
-          }
-        />
+      <div className="flex flex-1 gap-4 px-6 py-4 overflow-hidden relative">
+        <div className="flex-1 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+          <Transcript
+            userText={userText}
+            setUserText={setUserText}
+            onSendMessage={handleSendTextMessage}
+            downloadRecording={downloadRecording}
+            canSend={
+              sessionStatus === "CONNECTED"
+            }
+          />
+        </div>
         
         {/* 상담사 설정 사이드바 */}
         {isConsultantSettingsOpen && (
-          <div className="w-1/3 bg-white rounded-lg shadow-lg flex flex-col h-full max-h-[80vh]">
-            <div className="flex justify-between items-center px-6 py-3 sticky top-0 z-10 text-base border-b bg-white rounded-t-xl">
-              <span className="font-semibold">상담사 설정</span>
+          <div className="w-1/3 bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-white/10 shadow-2xl flex flex-col h-full max-h-[80vh]">
+            <div className="flex justify-between items-center px-6 py-2 sticky top-0 z-10 text-base border-b border-white/10 bg-slate-800/90 backdrop-blur-sm rounded-t-2xl">
+              <span className="font-semibold text-white text-sm">상담사 설정</span>
                 <button
                   onClick={() => setIsConsultantSettingsOpen(false)}
-                className="text-gray-500 hover:text-gray-700 text-xl"
+                className="text-gray-300 hover:text-white text-xl w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
                 >
                 ×
                 </button>
             </div>
             
-            <div className="flex-1 space-y-4 overflow-y-auto p-4" style={{ maxHeight: 'calc(80vh - 80px)' }}>
+            <div 
+              className="flex-1 space-y-6 overflow-y-auto p-6" 
+              style={{ 
+                maxHeight: 'calc(80vh - 120px)',
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent'
+              }}
+            >
               {/* 업체명 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
                   업체명
                 </label>
                 <input
@@ -1245,41 +1262,41 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                   value={consultantStoreName || ""}
                   onChange={(e) => setConsultantStoreName(e.target.value)}
                   placeholder="예: 맛있는 고깃집, 따뜻한 카페 등"
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
               
               {/* 인사말 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
                   인사말
                 </label>
                 <textarea
                   value={consultantGreeting || ""}
                   onChange={(e) => setConsultantGreeting(e.target.value)}
                   placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
-                  className="w-full h-24 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ overflowY: 'auto', minHeight: '96px', maxHeight: '150px' }}
+                  className="w-full h-20 p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'auto', minHeight: '80px', maxHeight: '120px' }}
                 />
               </div>
               
               {/* 역할 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
                   역할
                 </label>
                 <textarea
                   value={consultantRole || ""}
                   onChange={(e) => setConsultantRole(e.target.value)}
                   placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다."
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
+                  className="w-full h-32 p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'hidden', minHeight: '128px', maxHeight: '200px' }}
                 />
               </div>
 
               {/* 정보 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
                   정보
                 </label>
                 <textarea
@@ -1289,66 +1306,66 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 메뉴: 삼겹살 15,000원, 갈비 25,000원
 주차: 건물 지하 1층, 2시간 무료
 최대 예약 가능 인원: 8명`}
-                  className="w-full h-32 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  style={{ overflowY: 'auto', minHeight: '128px', maxHeight: '200px' }}
+                  className="w-full h-32 p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  style={{ overflowY: 'hidden', minHeight: '128px', maxHeight: '200px' }}
                 />
               </div>
 
               {/* 상담사 목소리 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
                   상담사 목소리
                 </label>
                 
                 {/* 성별 필터 버튼들 */}
-                <div className="flex gap-1 mb-3">
+                <div className="flex gap-2 mb-4">
                   <button
                     onClick={() => setVoiceGenderFilter('all')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       voiceGenderFilter === 'all' 
-                        ? 'bg-gray-200 text-gray-800' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        ? 'bg-white/20 text-white border border-white/30' 
+                        : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/15'
                     }`}
                   >
                     전체
                   </button>
                   <button
                     onClick={() => setVoiceGenderFilter('male')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       voiceGenderFilter === 'male' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-blue-50'
+                        ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' 
+                        : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-blue-500/20'
                     }`}
                   >
                     남성
                   </button>
                   <button
                     onClick={() => setVoiceGenderFilter('female')}
-                    className={`px-3 py-1 rounded-md text-sm font-medium ${
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       voiceGenderFilter === 'female' 
-                        ? 'bg-pink-100 text-pink-800' 
-                        : 'bg-gray-100 text-gray-600 hover:bg-pink-50'
+                        ? 'bg-pink-500/30 text-pink-300 border border-pink-400/50' 
+                        : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-pink-500/20'
                     }`}
                   >
                     여성
                   </button>
-            </div>
+                </div>
             
-                  <div className="relative inline-block voice-dropdown-container w-full">
+                <div className="relative inline-block voice-dropdown-container w-full">
                   <button
                     onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
-                    className="w-full appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none bg-white text-left"
+                    className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-base px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none text-white text-left hover:bg-white/15 transition-all"
                   >
                     <span 
                       style={{ 
-                        color: getVoiceById(selectedVoiceId).gender === 'male' ? '#3b82f6' : '#ec4899' 
+                        color: getVoiceById(selectedVoiceId).gender === 'male' ? '#60a5fa' : '#f472b6' 
                       }}
                     >
                       {getVoiceById(selectedVoiceId).name}
                     </span>
-                    <span className="text-gray-800"> : {getVoiceById(selectedVoiceId).description}</span>
+                    <span className="text-gray-300"> : {getVoiceById(selectedVoiceId).description}</span>
                   </button>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-300">
                     <svg
                       className="h-4 w-4"
                       viewBox="0 0 20 20"
@@ -1360,25 +1377,25 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                         clipRule="evenodd"
                       />
                     </svg>
-              </div>
+                  </div>
               
                   {/* 드롭다운 메뉴 */}
                   {isVoiceDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-lg z-50 max-h-60 overflow-y-auto">
+                    <div className="absolute top-full left-0 mt-1 w-full bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-2xl z-50 max-h-60 overflow-y-auto">
                       {getFilteredVoices().map((voice) => (
                         <button
                           key={voice.id}
                           onClick={() => handleVoiceChange(voice.id)}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-100 text-base font-normal"
+                          className="w-full text-left px-3 py-2 hover:bg-white/10 text-base font-normal text-white transition-colors"
                         >
                           <span 
                             style={{ 
-                              color: voice.gender === 'male' ? '#3b82f6' : '#ec4899' 
+                              color: voice.gender === 'male' ? '#60a5fa' : '#f472b6' 
                             }}
                           >
                             {voice.name}
                           </span>
-                          <span className="text-gray-800"> : {voice.description}</span>
+                          <span className="text-gray-300"> : {voice.description}</span>
                         </button>
                       ))}
                     </div>
@@ -1388,14 +1405,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 대화 스타일 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-3">
                   대화 스타일
                 </label>
                 <div className="relative inline-block w-full">
                   <select
                     value={conversationStyle}
                     onChange={(e) => setConversationStyle(e.target.value)}
-                    className="w-full appearance-none border border-gray-300 rounded-lg text-base px-2 py-1 pr-8 cursor-pointer font-normal focus:outline-none bg-white text-left"
+                    className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-base px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none text-white text-left hover:bg-white/15 transition-all"
                     title={
                       conversationStyle === "calm" 
                         ? "차분하고 명확하게, 천천히 여유롭게 설명해주세요."
@@ -1406,26 +1423,26 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                         : "사용자가 직접 대화 스타일을 입력할 수 있습니다."
                     }
                   >
-                    <option value="calm">차분한 스타일</option>
-                    <option value="standard">표준 스타일</option>
-                    <option value="energetic">활발한 스타일</option>
-                    <option value="custom">사용자 지정</option>
-                </select>
+                    <option value="calm" className="bg-slate-800 text-white">차분한 스타일</option>
+                    <option value="standard" className="bg-slate-800 text-white">표준 스타일</option>
+                    <option value="energetic" className="bg-slate-800 text-white">활발한 스타일</option>
+                    <option value="custom" className="bg-slate-800 text-white">사용자 지정</option>
+                  </select>
                   <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                     </svg>
                   </div>
-              </div>
+                </div>
 
                 {/* 사용자 지정 스타일 입력창 */}
                 {conversationStyle === "custom" && (
-                  <div className="mt-2">
-                <textarea
+                  <div className="mt-3">
+                    <textarea
                       value={customConversationStyle}
                       onChange={(e) => setCustomConversationStyle(e.target.value)}
                       placeholder="예: SYSTEM: 모든 응답을 빠르고 간결하게 해주세요. SYSTEM: 즉시 핵심만 답변해주세요."
-                      className="w-full h-20 p-3 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full h-20 p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                       style={{ overflowY: 'auto', minHeight: '80px', maxHeight: '120px' }}
                     />
                   </div>
@@ -1434,7 +1451,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 목소리 속도 설정 (미구현) */}
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-2">
+                <label className="block text-sm font-medium text-gray-400 mb-3">
                   목소리 속도 (미구현)
                 </label>
                 <div className="relative">
@@ -1450,7 +1467,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                           console.log('🎵 SLIDER CHANGED TO:', parseFloat(e.target.value));
                           handleVoiceSpeedChange(parseFloat(e.target.value));
                         }}
-                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer opacity-50"
+                        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer opacity-50"
                         disabled
                       />
                       {/* 슬라이더 기준 라벨 */}
@@ -1472,16 +1489,16 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
             </div>
             
             {/* 저장/취소 버튼 - 스크롤 영역 밖에 고정 */}
-            <div className="flex justify-end space-x-2 py-2 px-4">
-                <button
+            <div className="flex justify-end space-x-3 py-2 px-6 border-t border-white/10">
+              <button
                 onClick={handleCancelConsultantSettings}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800"
-                >
+                className="px-4 py-1 text-gray-300 hover:text-white transition-colors"
+              >
                 취소
-                </button>
-                <button
-                  onClick={handleSaveConsultantSettings}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              </button>
+              <button
+                onClick={handleSaveConsultantSettings}
+                className="px-6 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium"
               >
                 저장
               </button>
@@ -1492,21 +1509,21 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         {/* 삭제 확인 모달 */}
         {isDeleteConfirmModalOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]"
+            className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-[60]"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 handleCancelDelete();
               }
             }}
           >
-            <div className="bg-white rounded-lg p-6 w-96">
-              <h3 className="text-lg font-semibold mb-4 text-red-600">상담사 삭제 확인</h3>
+            <div className="bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-2xl p-6 w-96 shadow-2xl">
+              <h3 className="text-lg font-semibold mb-4 text-red-400">상담사 삭제 확인</h3>
               
               <div className="mb-6">
-                <p className="text-gray-700">
-                  <span className="font-semibold">"{scenarioNames[deletingScenarioKey] || deletingScenarioKey}"</span> 상담사를 삭제하시겠습니까?
+                <p className="text-gray-300">
+                  <span className="font-semibold text-white">"{scenarioNames[deletingScenarioKey] || deletingScenarioKey}"</span> 상담사를 삭제하시겠습니까?
                 </p>
-                <p className="text-sm text-gray-500 mt-2">
+                <p className="text-sm text-gray-400 mt-2">
                   삭제된 상담사는 복구할 수 없습니다.
                 </p>
               </div>
@@ -1514,13 +1531,13 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={handleCancelDelete}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className="px-4 py-2 text-gray-300 hover:text-white border border-white/20 rounded-lg hover:bg-white/10 transition-all"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleConfirmDelete}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
                 >
                   삭제
                 </button>
@@ -1532,41 +1549,41 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         {/* 상담사 저장 모달 */}
         {isSaveConsultantModalOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 handleCancelSaveConsultant();
               }
             }}
           >
-            <div className="bg-white rounded-lg p-6 w-96">
-              <h3 className="text-lg font-semibold mb-4">상담사 저장</h3>
+            <div className="bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-2xl p-6 w-96 shadow-2xl">
+              <h3 className="text-lg font-semibold mb-4 text-white">상담사 저장</h3>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   상담사 이름
                 </label>
                 <input
                   type="text"
                   value={consultantSaveName || ""}
                   onChange={(e) => setConsultantSaveName(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="예: 고깃집 상담사, 카페 상담사"
                   autoFocus
                 />
               </div>
 
-              <div className="flex justify-end space-x-2">
+              <div className="flex justify-end space-x-3">
                 <button
                   onClick={handleCancelSaveConsultant}
-                  className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleConfirmSaveConsultant}
                   disabled={!consultantSaveName.trim()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
                 >
                   저장
                 </button>
@@ -1578,25 +1595,25 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         {/* 시나리오 이름 편집 모달 */}
         {isScenarioNameModalOpen && (
           <div 
-            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+            className="fixed inset-0 bg-black bg-opacity-70 backdrop-blur-sm flex items-center justify-center z-50"
             onClick={(e) => {
               if (e.target === e.currentTarget) {
                 handleCancelScenarioNameEdit();
               }
             }}
           >
-            <div className="bg-white rounded-lg p-6 w-96">
-              <h3 className="text-lg font-semibold mb-4">시나리오 이름 편집</h3>
+            <div className="bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-2xl p-6 w-96 shadow-2xl">
+              <h3 className="text-lg font-semibold mb-4 text-white">시나리오 이름 편집</h3>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   시나리오 이름
                 </label>
                 <input
                   type="text"
                   value={newScenarioName || ""}
                   onChange={(e) => setNewScenarioName(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="시나리오 이름을 입력하세요"
                   autoFocus
                 />
@@ -1605,23 +1622,23 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               <div className="flex justify-between">
                 <button
                   onClick={handleDeleteScenarioName.bind(null, editingScenarioKey)}
-                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-all"
                 >
                   삭제
                 </button>
-                <div className="flex space-x-2">
-                <button
+                <div className="flex space-x-3">
+                  <button
                     onClick={handleCancelScenarioNameEdit}
-                    className="px-4 py-2 text-gray-600 hover:text-gray-800"
+                    className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
                   >
                     취소
                   </button>
                   <button
                     onClick={handleSaveScenarioName}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                >
-                  저장
-                </button>
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all"
+                  >
+                    저장
+                  </button>
                 </div>
               </div>
             </div>
@@ -1630,18 +1647,18 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
         {/* 토스트 알림 */}
         {toast && (
-          <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[70] px-6 py-3 rounded-lg shadow-lg transition-all duration-300 ease-in-out ${
+          <div className={`fixed top-4 left-1/2 transform -translate-x-1/2 z-[70] px-6 py-3 rounded-xl shadow-2xl backdrop-blur-sm border transition-all duration-300 ease-in-out ${
             toast.type === 'success' 
-              ? 'bg-green-500 text-white' 
+              ? 'bg-green-500/90 text-white border-green-400/50' 
               : toast.type === 'error' 
-              ? 'bg-red-500 text-white' 
-              : 'bg-blue-500 text-white'
+              ? 'bg-red-500/90 text-white border-red-400/50' 
+              : 'bg-blue-500/90 text-white border-blue-400/50'
           }`}>
             <div className="flex items-center space-x-2">
               <span>{toast.message}</span>
               <button 
                 onClick={() => setToast(null)}
-                className="ml-2 text-white hover:text-gray-200"
+                className="ml-2 text-white hover:text-gray-200 w-5 h-5 flex items-center justify-center rounded-full hover:bg-white/20 transition-colors"
               >
                 ×
               </button>

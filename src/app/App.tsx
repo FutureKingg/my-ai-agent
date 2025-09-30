@@ -187,23 +187,37 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
   };
 
   // Voice preview function
-  const playVoicePreview = (voiceId: string) => {
+  const playVoicePreview = async (voiceId: string) => {
     const selectedVoice = getVoiceById(voiceId);
-    console.log('🎵 Playing voice preview:', selectedVoice);
+    console.log('🎵 Playing voice preview with OpenAI TTS:', selectedVoice);
     
-    // Create a simple text-to-speech preview
-    if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance('안녕하세요 상담사 목소리 테스트입니다.');
-      utterance.voice = speechSynthesis.getVoices().find(voice => 
-        voice.name.toLowerCase().includes(selectedVoice.voice.toLowerCase())
-      ) || null;
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
-      utterance.volume = 0.8;
+    try {
+      const response = await fetch('/api/tts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text: '안녕하세요 상담사 목소리 테스트입니다.',
+          voice: selectedVoice.voice,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('TTS API request failed');
+      }
+
+      const audioBlob = await response.blob();
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
       
-      speechSynthesis.speak(utterance);
-    } else {
-      console.log('🎵 Speech synthesis not supported');
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+      
+      await audio.play();
+    } catch (error) {
+      console.error('🎵 Voice preview failed:', error);
     }
   };
 
@@ -307,30 +321,59 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
 
   const connectToRealtime = async () => {
     const agentSetKey = selectedAgentConfig;
-    if (sdkScenarioMap[agentSetKey]) {
-    if (sessionStatus !== "DISCONNECTED") return;
+    console.log('🎵 Connecting to realtime with agentSetKey:', agentSetKey);
+    console.log('🎵 Available scenarios:', Object.keys(sdkScenarioMap));
+    
+    if (!sdkScenarioMap[agentSetKey]) {
+      console.error('🎵 Scenario not found:', agentSetKey);
+      setSessionStatus("DISCONNECTED");
+      return;
+    }
+    
+    if (sessionStatus !== "DISCONNECTED") {
+      console.log('🎵 Already connected or connecting');
+      return;
+    }
+    
     setSessionStatus("CONNECTING");
 
     try {
       const EPHEMERAL_KEY = await fetchEphemeralKey();
-      if (!EPHEMERAL_KEY) return;
+      if (!EPHEMERAL_KEY) {
+        console.error('🎵 No ephemeral key received');
+        setSessionStatus("DISCONNECTED");
+        return;
+      }
+      
+      console.log('🎵 Ephemeral key received, starting connection...');
 
         // Use the first agent as root (no reordering needed)
         const agents = [...sdkScenarioMap[agentSetKey]];
 
         // Check if this is a saved consultant (outside the loop for access)
         const savedConsultant = savedConsultants[agentSetKey];
+        
+        if (agentSetKey.startsWith('consultant_') && !savedConsultant) {
+          console.error('🎵 Saved consultant not found:', agentSetKey);
+          setSessionStatus("DISCONNECTED");
+          alert('저장된 상담사 데이터를 찾을 수 없습니다. 새로고침 후 다시 시도해주세요.');
+          return;
+        }
 
         // Apply selected voice and COMPLETELY REPLACE instructions with user prompts
-        const selectedVoice = getVoiceById(selectedVoiceId);
+        const voiceIdToUse = savedConsultant ? (savedConsultant.voiceId || selectedVoiceId) : selectedVoiceId;
+        const selectedVoice = getVoiceById(voiceIdToUse);
         const finalVoiceSpeed = savedConsultant ? (savedConsultant.voiceSpeed || 1.0) : voiceSpeed;
         
-        console.log('🎵 Voice Speed Settings:', {
+        console.log('🎵 Voice Settings:', {
+          voiceIdToUse,
+          selectedVoiceId,
+          savedConsultantVoiceId: savedConsultant?.voiceId,
+          selectedVoice: selectedVoice.voice,
           voiceSpeed,
           savedConsultantSpeed: savedConsultant?.voiceSpeed,
           finalVoiceSpeed,
-          agentSetKey,
-          selectedVoice: selectedVoice.voice
+          agentSetKey
         });
         
         agents.forEach(agent => {
@@ -437,9 +480,15 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
           : chatSupervisorCompanyName;
         const guardrail = createModerationGuardrail(companyName);
 
+      // Set up connection timeout
+      const connectionTimeout = setTimeout(() => {
+        console.error('🎵 Connection timeout after 10 seconds');
+        setSessionStatus("DISCONNECTED");
+      }, 10000);
+
       await connect({
         getEphemeralKey: async () => EPHEMERAL_KEY,
-          initialAgents: agents,
+        initialAgents: agents,
         audioElement: sdkAudioElement,
         outputGuardrails: [guardrail],
         extraContext: {
@@ -448,6 +497,10 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         voiceSpeed: finalVoiceSpeed,
       });
 
+      // Clear timeout on successful connection
+      clearTimeout(connectionTimeout);
+      console.log('🎵 Connection established successfully');
+
       console.log('🎵 Connected with voice speed:', finalVoiceSpeed);
 
       // Apply audio speed after connection (client-side)
@@ -455,10 +508,17 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         console.log('🎵 Applying initial audio speed after connection:', finalVoiceSpeed);
         applyAudioSpeedToAllElements(finalVoiceSpeed);
       }, 2000); // Wait for audio elements to be created
+
+      // Send an initial 'hi' message to trigger the agent to greet the user immediately
+      setTimeout(() => {
+        console.log('🎵 Sending initial greeting trigger...');
+        sendSimulatedUserMessage('hi');
+      }, 500); // Send immediately after connection
     } catch (err) {
-      console.error("Error connecting via SDK:", err);
+      console.error("🎵 Error connecting via SDK:", err);
       setSessionStatus("DISCONNECTED");
-      }
+      // Show user-friendly error message
+      alert(`연결에 실패했습니다: ${err instanceof Error ? err.message : '알 수 없는 오류'}`);
       return;
     }
   };
@@ -508,6 +568,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
     // Send an initial 'hi' message to trigger the agent to greet the user
     if (shouldTriggerResponse) {
+      console.log('🎵 Sending initial greeting trigger...');
       sendSimulatedUserMessage('hi');
     }
     return;

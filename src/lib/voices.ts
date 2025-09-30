@@ -12,7 +12,7 @@ export const voices: Voice[] = [
     name: 'Alloy',
     voice: 'alloy',
     description: '중립적이고 균형 잡힌',
-    gender: 'male'
+    gender: 'female'
   },
   {
     id: 'openai-echo',
@@ -54,14 +54,14 @@ export const voices: Voice[] = [
     name: 'Ash',
     voice: 'ash',
     description: '맑고 정확한 발음',
-    gender: 'female'
+    gender: 'male'
   },
   {
-    id: 'openai-ballad',
-    name: 'Ballad',
-    voice: 'ballad',
-    description: '부드럽고 멜로디컬한',
-    gender: 'male'
+    id: 'openai-fable',
+    name: 'Fable',
+    voice: 'fable',
+    description: '이야기하는 듯한',
+    gender: 'female'
   },
   {
     id: 'openai-coral',

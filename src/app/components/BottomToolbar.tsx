@@ -14,6 +14,7 @@ interface BottomToolbarProps {
   codec: string;
   onCodecChange: (newCodec: string) => void;
   onConsultantSettingsClick: () => void;
+  onMicrophoneSettingsClick: () => void;
 }
 
 function BottomToolbar({
@@ -29,6 +30,7 @@ function BottomToolbar({
   codec,
   onCodecChange,
   onConsultantSettingsClick,
+  onMicrophoneSettingsClick,
 }: BottomToolbarProps) {
   const isConnected = sessionStatus === "CONNECTED";
   const isConnecting = sessionStatus === "CONNECTING";
@@ -117,9 +119,15 @@ function BottomToolbar({
         <div className="flex flex-row items-center gap-2">
           <button
             onClick={onConsultantSettingsClick}
-            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 text-base"
+            className="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors shadow-sm"
           >
             상담사 설정
+          </button>
+          <button
+            onClick={onMicrophoneSettingsClick}
+            className="px-3 py-1.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm font-medium transition-colors shadow-sm"
+          >
+            마이크 설정
           </button>
         </div>
 
@@ -136,6 +144,7 @@ function BottomToolbar({
             <option value="pcma">PCMA (8 kHz)</option>
           </select>
         </div>
+
 
         <div className="flex flex-row items-center gap-2">
           <input

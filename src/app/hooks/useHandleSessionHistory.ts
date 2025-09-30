@@ -72,17 +72,13 @@ export function useHandleSessionHistory() {
     const function_name = lastFunctionCall?.name;
     const function_args = lastFunctionCall?.arguments;
 
-    addTranscriptBreadcrumb(
-      `function call: ${function_name}`,
-      function_args
-    );    
+    console.log(`🔧 Function call: ${function_name}`, function_args);
+    // 채팅창에는 표시하지 않고 콘솔에만 로그    
   }
   function handleAgentToolEnd(details: any, _agent: any, _functionCall: any, result: any) {
     const lastFunctionCall = extractFunctionCallByName(_functionCall.name, details?.context?.history);
-    addTranscriptBreadcrumb(
-      `function call result: ${lastFunctionCall?.name}`,
-      maybeParseJson(result)
-    );
+    console.log(`🔧 Function call result: ${lastFunctionCall?.name}`, maybeParseJson(result));
+    // 채팅창에는 표시하지 않고 콘솔에만 로그
   }
 
   function handleHistoryAdded(item: any) {
@@ -103,7 +99,8 @@ export function useHandleSessionHistory() {
       const guardrailMessage = sketchilyDetectGuardrailMessage(text);
       if (guardrailMessage) {
         const failureDetails = JSON.parse(guardrailMessage);
-        addTranscriptBreadcrumb('Output Guardrail Active', { details: failureDetails });
+        console.log('🛡️ Output Guardrail Active', { details: failureDetails });
+        // 채팅창에는 표시하지 않고 콘솔에만 로그
       } else {
         addTranscriptMessage(itemId, role, text);
       }

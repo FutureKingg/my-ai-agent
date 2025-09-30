@@ -23,6 +23,11 @@ export interface ConnectOptions {
   extraContext?: Record<string, any>;
   outputGuardrails?: any[];
   voiceSpeed?: number;
+  audioOptions?: {
+    noiseSuppression?: boolean;
+    echoCancellation?: boolean;
+    autoGainControl?: boolean;
+  };
 }
 
 export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {

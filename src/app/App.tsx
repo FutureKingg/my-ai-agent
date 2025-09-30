@@ -9,6 +9,7 @@ import Image from "next/image";
 import Transcript from "./components/Transcript";
 import Events from "./components/Events";
 import BottomToolbar from "./components/BottomToolbar";
+import MicrophoneSettings from "./components/MicrophoneSettings";
 
 // Types
 import { SessionStatus } from "@/app/types";
@@ -21,7 +22,7 @@ import { useRealtimeSession } from "./hooks/useRealtimeSession";
 import { createModerationGuardrail } from "@/app/agentConfigs/guardrails";
 
 // Agent configs
-import { allAgentSets, defaultAgentSetKey } from "@/app/agentConfigs";
+// import { allAgentSets, defaultAgentSetKey } from "@/app/agentConfigs"; // 제거됨
 import { customerServiceRetailScenario } from "@/app/agentConfigs/customerServiceRetail";
 import { chatSupervisorScenario } from "@/app/agentConfigs/chatSupervisor";
 import { customerServiceRetailCompanyName } from "@/app/agentConfigs/customerServiceRetail";
@@ -32,13 +33,9 @@ import { savedConsultantScenario, savedConsultantCompanyName } from "@/app/agent
 // Voice configs
 import { voices, getVoiceById } from "@/lib/voices";
 
-// Base scenarios - these are static
+// Base scenarios - only essential ones
 const baseScenarioMap: Record<string, RealtimeAgent[]> = {
   newConsultant: savedConsultantScenario,
-  simpleHandoff: simpleHandoffScenario,
-  customerServiceRetail: customerServiceRetailScenario,
-  chatSupervisor: chatSupervisorScenario,
-  savedConsultant: savedConsultantScenario,
 };
 
 import useAudioDownload from "./hooks/useAudioDownload";
@@ -76,6 +73,10 @@ function App() {
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
   const [conversationStyle, setConversationStyle] = useState<string>("standard");
   const [customConversationStyle, setCustomConversationStyle] = useState<string>("");
+  const [noiseSuppression, setNoiseSuppression] = useState<boolean>(true);
+  const [echoCancellation, setEchoCancellation] = useState<boolean>(true);
+  const [autoGainControl, setAutoGainControl] = useState<boolean>(true);
+  const [isMicrophoneSettingsOpen, setIsMicrophoneSettingsOpen] = useState<boolean>(false);
 
   // 대화 스타일 매핑 (SYSTEM 지시로 변경)
   const conversationStyleMap = {
@@ -156,11 +157,7 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
   const [voiceGenderFilter, setVoiceGenderFilter] = useState<'all' | 'male' | 'female'>('all');
   const [selectedAgentConfig, setSelectedAgentConfig] = useState<string>("newConsultant");
   const [scenarioNames, setScenarioNames] = useState<Record<string, string>>({
-    newConsultant: "새 상담사",
-    chatSupervisor: "채팅 관리자",
-    customerServiceRetail: "고객 서비스 소매", 
-    simpleHandoff: "간단한 인수인계",
-    savedConsultant: "저장된 상담사"
+    newConsultant: "AI 상담사 생성"
   });
   const [savedConsultants, setSavedConsultants] = useState<Record<string, {
     name: string;
@@ -241,8 +238,17 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
       dynamicMap[consultantId] = savedConsultantScenario;
     });
     
+    // Remove deleted scenarios from the map (but keep base scenarios)
+    const baseScenarioKeys = Object.keys(baseScenarioMap);
+    Object.keys(scenarioNames).forEach(scenarioKey => {
+      // Only remove if it's not a base scenario and it's deleted
+      if (!baseScenarioKeys.includes(scenarioKey) && !scenarioNames[scenarioKey]) {
+        delete dynamicMap[scenarioKey];
+      }
+    });
+    
     return dynamicMap;
-  }, [savedConsultants]);
+  }, [savedConsultants, scenarioNames]);
   const [isPTTActive, setIsPTTActive] = useState<boolean>(false);
   const [isPTTUserSpeaking, setIsPTTUserSpeaking] = useState<boolean>(false);
   const [isAudioPlaybackEnabled, setIsAudioPlaybackEnabled] = useState<boolean>(
@@ -271,16 +277,16 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
   useEffect(() => {
     let finalAgentConfig = searchParams.get("agentConfig");
     if (!finalAgentConfig || !sdkScenarioMap[finalAgentConfig]) {
-      finalAgentConfig = "savedConsultant";
+      finalAgentConfig = "newConsultant";
       const url = new URL(window.location.toString());
       url.searchParams.set("agentConfig", finalAgentConfig);
       window.location.replace(url.toString());
       return;
     }
 
-    const agents = allAgentSets[finalAgentConfig];
+    const agents = sdkScenarioMap[finalAgentConfig];
     setSelectedAgentConfigSet(agents);
-  }, [searchParams]);
+  }, [searchParams, sdkScenarioMap]);
 
   // 자동 연결 기능 제거 - 사용자가 Connect 버튼을 클릭할 때만 연결
 
@@ -290,7 +296,8 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
       selectedAgentConfigSet
     ) {
       const currentAgent = selectedAgentConfigSet[0]; // Use first agent as root
-      addTranscriptBreadcrumb(`Agent: ${currentAgent.name}`, currentAgent);
+      console.log(`🤖 Agent: ${currentAgent.name}`, currentAgent);
+      // 채팅창에는 표시하지 않고 콘솔에만 로그
       updateSession(!handoffTriggeredRef.current);
       // Reset flag after handling so subsequent effects behave normally
       handoffTriggeredRef.current = false;
@@ -495,6 +502,11 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
           addTranscriptBreadcrumb,
         },
         voiceSpeed: finalVoiceSpeed,
+        audioOptions: {
+          noiseSuppression,
+          echoCancellation,
+          autoGainControl,
+        },
       });
 
       // Clear timeout on successful connection
@@ -663,12 +675,25 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
   };
 
   const handleSaveConsultantSettings = () => {
+    console.log('🎵 Save button clicked! selectedAgentConfig:', selectedAgentConfig);
+    console.log('🎵 Current form values:', {
+      consultantGreeting,
+      consultantRole,
+      consultantInfo,
+      consultantStoreName,
+      selectedVoiceId,
+      voiceSpeed,
+      conversationStyle,
+      customConversationStyle
+    });
+    
     // 새 상담사인 경우에만 이름 입력 모달 열기
     if (selectedAgentConfig === "newConsultant") {
+      console.log('🎵 Opening save modal for new consultant');
       setConsultantSaveName("");
       setIsSaveConsultantModalOpen(true);
     } else if (selectedAgentConfig.startsWith("consultant_")) {
-      // 저장된 상담사인 경우 바로 덮어쓰기
+      // 저장된 상담사인 경우 현재 폼의 값으로 업데이트
       const existingConsultant = savedConsultants[selectedAgentConfig];
       if (existingConsultant) {
         const updatedConsultant = {
@@ -713,10 +738,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         customConversationStyle: customConversationStyle
       };
       
-      setSavedConsultants(prev => ({
-        ...prev,
-        [consultantId]: newConsultant
-      }));
+      setSavedConsultants(prev => {
+        const updated = {
+          ...prev,
+          [consultantId]: newConsultant
+        };
+        console.log('🎵 Saving consultant to state:', consultantId, newConsultant);
+        return updated;
+      });
       
       // 시나리오 이름에도 추가/업데이트
       setScenarioNames(prev => ({
@@ -725,6 +754,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       }));
       
       // 자동으로 저장된 상담사 선택
+      console.log('🎵 Setting selected agent config to:', consultantId);
       setSelectedAgentConfig(consultantId);
       
       // Show confirmation message
@@ -778,6 +808,9 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         return newConsultants;
       });
     }
+    
+    // 기본 상담사들도 삭제 가능하도록 수정
+    // (chatSupervisor, customerServiceRetail, simpleHandoff 등)
     
     // 현재 선택된 상담사가 삭제되는 상담사라면 새 상담사로 변경
     if (selectedAgentConfig === scenarioKey) {
@@ -876,14 +909,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
     if (storedCustomConversationStyle) {
       setCustomConversationStyle(storedCustomConversationStyle);
     }
-    const storedSelectedAgentConfig = localStorage.getItem("selectedAgentConfig");
-    if (storedSelectedAgentConfig) {
-      setSelectedAgentConfig(storedSelectedAgentConfig);
-    }
     const storedScenarioNames = localStorage.getItem("scenarioNames");
     if (storedScenarioNames) {
       try {
-        setScenarioNames(JSON.parse(storedScenarioNames));
+        const parsedNames = JSON.parse(storedScenarioNames);
+        // 강제로 newConsultant 이름 업데이트
+        parsedNames.newConsultant = "AI 상담사 생성";
+        setScenarioNames(parsedNames);
+        localStorage.setItem("scenarioNames", JSON.stringify(parsedNames));
       } catch (e) {
         console.error("Failed to parse scenario names:", e);
       }
@@ -891,9 +924,43 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
     const storedSavedConsultants = localStorage.getItem("savedConsultants");
     if (storedSavedConsultants) {
       try {
-        setSavedConsultants(JSON.parse(storedSavedConsultants));
+        const parsedConsultants = JSON.parse(storedSavedConsultants);
+        console.log('🎵 Loading saved consultants from localStorage:', parsedConsultants);
+        setSavedConsultants(parsedConsultants);
       } catch (e) {
         console.error("Failed to parse saved consultants:", e);
+      }
+    } else {
+      console.log('🎵 No saved consultants found in localStorage');
+    }
+    
+    // selectedAgentConfig를 마지막에 설정하여 저장된 상담사 설정이 제대로 로드되도록 함
+    const storedSelectedAgentConfig = localStorage.getItem("selectedAgentConfig");
+    if (storedSelectedAgentConfig) {
+      console.log('🎵 Loading selected agent config:', storedSelectedAgentConfig);
+      setSelectedAgentConfig(storedSelectedAgentConfig);
+      
+      // 저장된 상담사인 경우 목소리 설정도 로드
+      if (storedSelectedAgentConfig.startsWith('consultant_')) {
+        const storedSavedConsultants = localStorage.getItem("savedConsultants");
+        if (storedSavedConsultants) {
+          try {
+            const parsedConsultants = JSON.parse(storedSavedConsultants);
+            const consultant = parsedConsultants[storedSelectedAgentConfig];
+            if (consultant && consultant.voiceId) {
+              console.log('🎵 Loading saved consultant voice:', consultant.voiceId);
+              setSelectedVoiceId(consultant.voiceId);
+              
+              // UI 업데이트를 위한 강제 리렌더링
+              setTimeout(() => {
+                console.log('🎵 Force UI update for initial voice load');
+                setSelectedVoiceId(consultant.voiceId);
+              }, 200);
+            }
+          } catch (e) {
+            console.error("Failed to parse saved consultants for voice:", e);
+          }
+        }
       }
     }
   }, []);
@@ -956,6 +1023,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
     // 상담사 선택 시 자동 로딩
     if (selectedAgentConfig === "newConsultant") {
       // 새 상담사 선택 시 필드 초기화
+      console.log('🎵 Loading new consultant - resetting all fields');
       setConsultantGreeting("");
       setConsultantRole("");
       setConsultantInfo("");
@@ -968,23 +1036,37 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       // 저장된 상담사 선택 시 해당 상담사 설정 로드
       const consultant = savedConsultants[selectedAgentConfig];
       if (consultant) {
+        console.log('🎵 Loading saved consultant:', consultant.name, consultant);
         setConsultantGreeting(consultant.greeting);
         setConsultantRole(consultant.role);
         setConsultantInfo(consultant.info);
         setConsultantStoreName(consultant.storeName);
-        setSelectedVoiceId(consultant.voiceId);
-        setVoiceSpeed(1.0); // 목소리 속도는 항상 표준(1.0)으로 설정 (미구현 상태)
+        // 목소리 설정을 더 안정적으로 로드
+        if (consultant.voiceId) {
+          console.log('🎵 Setting voice ID to:', consultant.voiceId);
+          setSelectedVoiceId(consultant.voiceId);
+          
+          // UI 업데이트를 위한 강제 리렌더링
+          setTimeout(() => {
+            console.log('🎵 Force UI update for voice selection');
+            setSelectedVoiceId(consultant.voiceId);
+          }, 100);
+        }
+        setVoiceSpeed(consultant.voiceSpeed || 1.0);
         setConversationStyle(consultant.conversationStyle || "standard");
         setCustomConversationStyle(consultant.customConversationStyle || "");
+      } else {
+        console.log('🎵 Saved consultant not found:', selectedAgentConfig);
       }
     }
-  }, [selectedAgentConfig]);
+  }, [selectedAgentConfig, savedConsultants]);
 
   useEffect(() => {
     localStorage.setItem("scenarioNames", JSON.stringify(scenarioNames));
   }, [scenarioNames]);
 
   useEffect(() => {
+    console.log('🎵 Saving savedConsultants to localStorage:', savedConsultants);
     localStorage.setItem("savedConsultants", JSON.stringify(savedConsultants));
   }, [savedConsultants]);
 
@@ -1115,13 +1197,15 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                 </svg>
               </div>
             </div>
-          <button
-            onClick={() => handleEditScenarioName(agentSetKey)}
-            className="ml-2 px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
-            title="시나리오 이름 편집"
-          >
-            편집
-          </button>
+          {agentSetKey !== "newConsultant" && (
+            <button
+              onClick={() => handleEditScenarioName(agentSetKey)}
+              className="ml-2 px-2 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600"
+              title="시나리오 이름 편집"
+            >
+              편집
+            </button>
+          )}
 
         </div>
       </div>
@@ -1581,6 +1665,19 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         codec={urlCodec}
         onCodecChange={handleCodecChange}
         onConsultantSettingsClick={handleConsultantSettingsClick}
+        onMicrophoneSettingsClick={() => setIsMicrophoneSettingsOpen(true)}
+      />
+
+      {/* 마이크 설정 모달 */}
+      <MicrophoneSettings
+        isOpen={isMicrophoneSettingsOpen}
+        onClose={() => setIsMicrophoneSettingsOpen(false)}
+        noiseSuppression={noiseSuppression}
+        setNoiseSuppression={setNoiseSuppression}
+        echoCancellation={echoCancellation}
+        setEchoCancellation={setEchoCancellation}
+        autoGainControl={autoGainControl}
+        setAutoGainControl={setAutoGainControl}
       />
     </div>
   );

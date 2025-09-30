@@ -12,10 +12,20 @@ function useAudioDownload() {
    * the microphone audio.
    * @param remoteStream - The remote MediaStream (e.g., from the audio element).
    */
-  const startRecording = async (remoteStream: MediaStream) => {
+  const startRecording = async (remoteStream: MediaStream, audioOptions?: {
+    noiseSuppression?: boolean;
+    echoCancellation?: boolean;
+    autoGainControl?: boolean;
+  }) => {
     let micStream: MediaStream;
     try {
-      micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      micStream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          noiseSuppression: audioOptions?.noiseSuppression ?? true,
+          echoCancellation: audioOptions?.echoCancellation ?? true,
+          autoGainControl: audioOptions?.autoGainControl ?? true,
+        }
+      });
     } catch (err) {
       console.error("Error getting microphone stream:", err);
       // Fallback to an empty MediaStream if microphone access fails.

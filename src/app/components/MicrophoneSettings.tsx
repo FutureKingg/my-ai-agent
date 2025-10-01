@@ -9,6 +9,10 @@ interface MicrophoneSettingsProps {
   setEchoCancellation: (val: boolean) => void;
   autoGainControl: boolean;
   setAutoGainControl: (val: boolean) => void;
+  codec: string;
+  onCodecChange: (newCodec: string) => void;
+  isEventsPaneExpanded: boolean;
+  setIsEventsPaneExpanded: (val: boolean) => void;
 }
 
 function MicrophoneSettings({
@@ -20,6 +24,10 @@ function MicrophoneSettings({
   setEchoCancellation,
   autoGainControl,
   setAutoGainControl,
+  codec,
+  onCodecChange,
+  isEventsPaneExpanded,
+  setIsEventsPaneExpanded,
 }: MicrophoneSettingsProps) {
   if (!isOpen) return null;
 
@@ -29,11 +37,11 @@ function MicrophoneSettings({
       onClick={onClose}
     >
       <div 
-        className="bg-white rounded-xl p-5 w-80 max-w-sm mx-4 shadow-2xl border border-gray-200"
+        className="bg-white rounded-xl p-5 w-80 max-w-sm mx-4 shadow-2xl border border-gray-200 max-h-[80vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-800">마이크 설정</h2>
+          <h2 className="text-lg font-semibold text-gray-800">통합 설정</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
@@ -42,63 +50,117 @@ function MicrophoneSettings({
           </button>
         </div>
 
-        <div className="space-y-3">
-          {/* 노이즈 제거 */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-800 text-sm">노이즈 제거</h3>
-              <p className="text-xs text-gray-500 mt-0.5">배경 소음을 자동으로 제거합니다</p>
+        {/* 마이크 설정 섹션 */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-800 text-base border-b border-gray-200 pb-2">마이크 설정</h3>
+          <div className="space-y-3">
+            {/* 노이즈 제거 */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-800 text-sm">노이즈 제거</h4>
+                <p className="text-xs text-gray-500 mt-0.5">배경 소음을 자동으로 제거합니다</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={noiseSuppression}
+                  onChange={(e) => setNoiseSuppression(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={noiseSuppression}
-                onChange={(e) => setNoiseSuppression(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
 
-          {/* 에코 제거 */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-800 text-sm">에코 제거</h3>
-              <p className="text-xs text-gray-500 mt-0.5">스피커 소리가 마이크로 다시 들어가는 것을 방지합니다</p>
+            {/* 에코 제거 */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-800 text-sm">에코 제거</h4>
+                <p className="text-xs text-gray-500 mt-0.5">스피커 소리가 마이크로 다시 들어가는 것을 방지합니다</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={echoCancellation}
+                  onChange={(e) => setEchoCancellation(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={echoCancellation}
-                onChange={(e) => setEchoCancellation(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
-          </div>
 
-          {/* 자동 게인 제어 */}
-          <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
-            <div className="flex-1">
-              <h3 className="font-medium text-gray-800 text-sm">자동 게인 제어</h3>
-              <p className="text-xs text-gray-500 mt-0.5">음량을 자동으로 조절하여 일정한 음질을 유지합니다</p>
+            {/* 자동 게인 제어 */}
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-800 text-sm">자동 게인 제어</h4>
+                <p className="text-xs text-gray-500 mt-0.5">음량을 자동으로 조절하여 일정한 음질을 유지합니다</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoGainControl}
+                  onChange={(e) => setAutoGainControl(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={autoGainControl}
-                onChange={(e) => setAutoGainControl(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-            </label>
+          </div>
+        </div>
+
+        {/* 구분선 */}
+        <div className="border-t border-gray-200 my-4"></div>
+
+        {/* 오디오 설정 섹션 */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-800 text-base border-b border-gray-200 pb-2">오디오 설정</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-800 text-sm">오디오 코덱</h4>
+                <p className="text-xs text-gray-500 mt-0.5">음질과 대역폭을 선택하세요</p>
+              </div>
+              <select
+                value={codec}
+                onChange={(e) => onCodecChange(e.target.value)}
+                className="bg-white border border-gray-300 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#58CC02]"
+              >
+                <option value="opus" className="bg-white text-gray-900">Opus (48 kHz)</option>
+                <option value="pcmu" className="bg-white text-gray-900">PCMU (8 kHz)</option>
+                <option value="pcma" className="bg-white text-gray-900">PCMA (8 kHz)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* 구분선 */}
+        <div className="border-t border-gray-200 my-4"></div>
+
+        {/* 로그 설정 섹션 */}
+        <div className="space-y-4">
+          <h3 className="font-semibold text-gray-800 text-base border-b border-gray-200 pb-2">로그 설정</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100 hover:bg-gray-100 transition-colors">
+              <div className="flex-1">
+                <h4 className="font-medium text-gray-800 text-sm">이벤트 로그</h4>
+                <p className="text-xs text-gray-500 mt-0.5">통화 이벤트를 실시간으로 표시합니다</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isEventsPaneExpanded}
+                  onChange={(e) => setIsEventsPaneExpanded(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
+            </div>
           </div>
         </div>
 
         <div className="mt-5 flex justify-end">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium shadow-sm"
+            className="px-4 py-2 bg-[#58CC02] text-white rounded-lg hover:bg-[#4BB302] transition-colors text-sm font-medium shadow-sm"
           >
             완료
           </button>

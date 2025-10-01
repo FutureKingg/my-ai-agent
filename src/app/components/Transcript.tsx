@@ -71,21 +71,21 @@ function Transcript({
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-white/10">
+    <div className="flex flex-col h-full bg-white rounded-2xl border border-gray-200">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-2 border-b border-white/10 bg-slate-800/90 backdrop-blur-sm rounded-t-2xl flex-shrink-0">
-        <span className="font-semibold text-white text-sm">대화 내용</span>
+      <div className="flex items-center justify-between px-6 py-2 border-b border-gray-200 bg-white rounded-t-2xl flex-shrink-0">
+        <span className="font-semibold text-gray-900 text-sm">대화 내용</span>
         <div className="flex gap-x-2">
           <button
             onClick={handleCopyTranscript}
-            className="w-24 text-sm px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex items-center justify-center gap-x-1 transition-all"
+            className="w-24 text-sm px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 flex items-center justify-center gap-x-1 transition-all"
           >
             <ClipboardCopyIcon />
             {justCopied ? "복사됨!" : "복사"}
           </button>
           <button
             onClick={downloadRecording}
-            className="w-40 text-sm px-3 py-1.5 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 text-white hover:bg-white/20 flex items-center justify-center gap-x-1 transition-all"
+            className="w-40 text-sm px-3 py-1.5 rounded-lg bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 flex items-center justify-center gap-x-1 transition-all"
           >
             <DownloadIcon />
             <span>오디오 다운로드</span>
@@ -127,12 +127,12 @@ function Transcript({
                 isUser ? "items-end" : "items-start"
               }`;
               const bubbleBase = `max-w-lg p-2.5 ${
-                isUser ? "bg-gradient-to-r from-blue-600 to-purple-600 text-white" : "bg-white/10 backdrop-blur-sm border border-white/20 text-white"
+                isUser ? "bg-[#58CC02] text-white" : "bg-gray-100 border border-gray-200 text-gray-900"
               }`;
               const isBracketedMessage =
                 title.startsWith("[") && title.endsWith("]");
               const messageStyle = isBracketedMessage
-                ? 'italic text-gray-300'
+                ? 'italic text-gray-500'
                 : '';
               const displayTitle = isBracketedMessage
                 ? title.slice(1, -1)
@@ -149,7 +149,7 @@ function Transcript({
                       <div
                         className={`text-xs ${
                           isUser ? "text-blue-100" : "text-gray-400"
-                        } font-mono`}
+                        } font-inter`}
                       >
                         {timestamp}
                       </div>
@@ -171,7 +171,7 @@ function Transcript({
                   key={itemId}
                   className="flex flex-col justify-start items-start text-gray-400 text-sm"
                 >
-                  <span className="text-xs font-mono text-gray-500">{timestamp}</span>
+                  <span className="text-xs font-inter text-gray-500">{timestamp}</span>
                   <div
                     className={`whitespace-pre-wrap flex items-center font-mono text-sm text-gray-300 ${
                       data ? "cursor-pointer hover:text-white" : ""
@@ -206,7 +206,7 @@ function Transcript({
                   className="flex justify-center text-gray-400 text-sm italic font-mono"
                 >
                   Unknown item type: {type}{" "}
-                  <span className="ml-2 text-xs text-gray-500">{timestamp}</span>
+                  <span className="ml-2 text-xs font-inter text-gray-500">{timestamp}</span>
                 </div>
               );
             }
@@ -214,27 +214,29 @@ function Transcript({
       </div>
 
       {/* Input Area - Fixed at bottom */}
-      <div className="p-3 flex items-center gap-x-3 flex-shrink-0 border-t border-white/10">
-        <input
-          ref={inputRef}
-          type="text"
-          value={userText}
-          onChange={(e) => setUserText(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && canSend) {
-              onSendMessage();
-            }
-          }}
-          className="flex-1 px-4 py-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          placeholder="메시지를 입력하세요..."
-        />
-        <button
-          onClick={onSendMessage}
-          disabled={!canSend || !userText.trim()}
-          className="bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full p-2 disabled:opacity-50 hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg"
-        >
-          <Image src="arrow.svg" alt="전송" width={16} height={16} className="filter brightness-0 invert" />
-        </button>
+      <div className="p-3 flex-shrink-0 border-t border-gray-200">
+        <div className="relative">
+          <input
+            ref={inputRef}
+            type="text"
+            value={userText}
+            onChange={(e) => setUserText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && canSend) {
+                onSendMessage();
+              }
+            }}
+            className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-full text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent transition-all"
+            placeholder="메시지를 입력하세요..."
+          />
+          <button
+            onClick={onSendMessage}
+            disabled={!canSend || !userText.trim()}
+            className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#58CC02] text-white rounded-full p-2 disabled:opacity-50 hover:bg-[#4BB302] transition-all shadow-lg"
+          >
+            <Image src="arrow.svg" alt="전송" width={16} height={16} className="filter brightness-0 invert" />
+          </button>
+        </div>
       </div>
     </div>
   );

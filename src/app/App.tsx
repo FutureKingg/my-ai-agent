@@ -20,6 +20,7 @@ import { useTranscript } from "@/app/contexts/TranscriptContext";
 import { useEvent } from "@/app/contexts/EventContext";
 import { useRealtimeSession } from "./hooks/useRealtimeSession";
 import { createModerationGuardrail } from "@/app/agentConfigs/guardrails";
+import { industryCategories, getDefaultSettingsByIndustry } from "@/app/lib/industryCategories";
 
 // Agent configs
 // import { allAgentSets, defaultAgentSetKey } from "@/app/agentConfigs"; // 제거됨
@@ -73,10 +74,17 @@ function App() {
   const [voiceSpeed, setVoiceSpeed] = useState<number>(1.0);
   const [conversationStyle, setConversationStyle] = useState<string>("standard");
   const [customConversationStyle, setCustomConversationStyle] = useState<string>("");
-  const [noiseSuppression, setNoiseSuppression] = useState<boolean>(true);
-  const [echoCancellation, setEchoCancellation] = useState<boolean>(true);
-  const [autoGainControl, setAutoGainControl] = useState<boolean>(true);
+  const [noiseSuppression, setNoiseSuppression] = useState<boolean>(false);
+  const [echoCancellation, setEchoCancellation] = useState<boolean>(false);
+  const [autoGainControl, setAutoGainControl] = useState<boolean>(false);
   const [isMicrophoneSettingsOpen, setIsMicrophoneSettingsOpen] = useState<boolean>(false);
+  
+  // 상담사 설정 관련 상태
+  const [consultantStoreName, setConsultantStoreName] = useState<string>("");
+  const [consultantGreeting, setConsultantGreeting] = useState<string>("");
+  const [consultantRole, setConsultantRole] = useState<string>("");
+  const [consultantInfo, setConsultantInfo] = useState<string>("");
+  const [industryBasedSettings, setIndustryBasedSettings] = useState<any>(null);
 
   // 대화 스타일 매핑 (SYSTEM 지시로 변경)
   const conversationStyleMap = {
@@ -140,7 +148,7 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
     useState<SessionStatus>("DISCONNECTED");
 
   const [isEventsPaneExpanded, setIsEventsPaneExpanded] =
-    useState<boolean>(true);
+    useState<boolean>(false);
   const [isConsultantSettingsOpen, setIsConsultantSettingsOpen] = useState<boolean>(false);
   const [isScenarioNameModalOpen, setIsScenarioNameModalOpen] = useState<boolean>(false);
   const [editingScenarioKey, setEditingScenarioKey] = useState<string>("");
@@ -150,10 +158,6 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
   const [isDeleteConfirmModalOpen, setIsDeleteConfirmModalOpen] = useState<boolean>(false);
   const [deletingScenarioKey, setDeletingScenarioKey] = useState<string>("");
   const [toast, setToast] = useState<{message: string, type: 'success' | 'error' | 'info'} | null>(null);
-  const [consultantGreeting, setConsultantGreeting] = useState<string>("");
-  const [consultantRole, setConsultantRole] = useState<string>("");
-  const [consultantInfo, setConsultantInfo] = useState<string>("");
-  const [consultantStoreName, setConsultantStoreName] = useState<string>("");
   const [voiceGenderFilter, setVoiceGenderFilter] = useState<'all' | 'male' | 'female'>('all');
   const [selectedAgentConfig, setSelectedAgentConfig] = useState<string>("newConsultant");
   const [scenarioNames, setScenarioNames] = useState<Record<string, string>>({
@@ -169,6 +173,11 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
     voiceSpeed: number;
     conversationStyle: string;
     customConversationStyle: string;
+    industry?: string;
+    companyName?: string;
+    businessHours?: string;
+    location?: string;
+    serviceTypes?: string[];
   }>>({});
   const [userText, setUserText] = useState<string>("");
 
@@ -705,7 +714,12 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
           voiceId: selectedVoiceId,
           voiceSpeed: voiceSpeed,
           conversationStyle: conversationStyle,
-          customConversationStyle: customConversationStyle
+          customConversationStyle: customConversationStyle,
+          industry: industryBasedSettings?.industry,
+          companyName: industryBasedSettings?.companyName,
+          businessHours: industryBasedSettings?.businessHours,
+          location: industryBasedSettings?.location,
+          serviceTypes: industryBasedSettings?.serviceTypes
         };
         
         setSavedConsultants(prev => ({
@@ -735,7 +749,12 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         voiceId: selectedVoiceId,
         voiceSpeed: voiceSpeed,
         conversationStyle: conversationStyle,
-        customConversationStyle: customConversationStyle
+        customConversationStyle: customConversationStyle,
+        industry: industryBasedSettings?.industry,
+        companyName: industryBasedSettings?.companyName,
+        businessHours: industryBasedSettings?.businessHours,
+        location: industryBasedSettings?.location,
+        serviceTypes: industryBasedSettings?.serviceTypes
       };
       
       setSavedConsultants(prev => {
@@ -869,10 +888,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
     if (storedPushToTalkUI) {
       setIsPTTActive(storedPushToTalkUI === "true");
     }
-    const storedLogsExpanded = localStorage.getItem("logsExpanded");
-    if (storedLogsExpanded) {
-      setIsEventsPaneExpanded(storedLogsExpanded === "true");
-    }
+    // 로그는 항상 비활성화로 시작
+    localStorage.removeItem("logsExpanded");
+    setIsEventsPaneExpanded(false);
+    
+    // 마이크 설정도 항상 비활성화로 시작
+    setNoiseSuppression(false);
+    setEchoCancellation(false);
+    setAutoGainControl(false);
     const storedAudioPlaybackEnabled = localStorage.getItem(
       "audioPlaybackEnabled"
     );
@@ -1032,6 +1055,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       setConversationStyle("standard");
       setCustomConversationStyle("");
       setVoiceSpeed(1.0); // 표준 위치로 리셋
+      setIndustryBasedSettings(null); // 업종 설정 초기화
     } else if (selectedAgentConfig.startsWith("consultant_")) {
       // 저장된 상담사 선택 시 해당 상담사 설정 로드
       const consultant = savedConsultants[selectedAgentConfig];
@@ -1055,6 +1079,18 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         setVoiceSpeed(consultant.voiceSpeed || 1.0);
         setConversationStyle(consultant.conversationStyle || "standard");
         setCustomConversationStyle(consultant.customConversationStyle || "");
+        
+        // 업종 정보 로드
+        if (consultant.industry) {
+          setIndustryBasedSettings({
+            industry: consultant.industry,
+            companyName: consultant.companyName || consultant.storeName,
+            greeting: consultant.greeting,
+            serviceTypes: consultant.serviceTypes || [],
+            businessHours: consultant.businessHours || '',
+            location: consultant.location || ''
+          });
+        }
       } else {
         console.log('🎵 Saved consultant not found:', selectedAgentConfig);
       }
@@ -1149,45 +1185,38 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
   const agentSetKey = selectedAgentConfig;
 
   return (
-    <div className="text-base flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 text-white relative">
+    <div className="text-base flex flex-col h-screen bg-white text-gray-900 relative">
       {/* Navigation Header */}
-      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 px-6 py-3">
+      <div className="bg-white border-b border-gray-200 px-6 py-3">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
             <button
               onClick={() => window.location.href = '/'}
-              className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center hover:from-blue-600 hover:to-purple-700 transition-all cursor-pointer"
+              className="w-8 h-8 bg-[#58CC02] rounded-lg flex items-center justify-center hover:bg-[#4BB302] transition-all cursor-pointer shadow-sm"
               title="홈으로 이동"
             >
-              <Image
-                src="/openai-logomark.svg"
-                alt="OpenAI Logo"
-                width={16}
-                height={16}
-                className="filter brightness-0 invert"
-              />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-white">AI 상담사 테스트</h1>
-              <p className="text-xs text-gray-300">실시간 AI 통화 시뮬레이션</p>
+              <h1 className="text-lg font-bold text-gray-900 font-inter">AI 상담사 테스트</h1>
+              <p className="text-xs text-gray-500">실시간 AI 통화 시뮬레이션</p>
             </div>
           </div>
           
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-300">
+              <label className="text-sm font-medium text-gray-700">
                 상담사 선택
               </label>
               <div className="relative">
                 <select
                   value={agentSetKey}
                   onChange={handleAgentChange}
-                  className="appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="appearance-none bg-white border border-gray-300 rounded-lg text-gray-900 px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent"
                 >
                   {Object.keys(sdkScenarioMap).map((agentKey) => {
                     const displayName = scenarioNames[agentKey] || agentKey;
                     return (
-                      <option key={agentKey} value={agentKey} className="bg-slate-800 text-white">
+                      <option key={agentKey} value={agentKey} className="bg-white text-gray-900">
                         {displayName}
                       </option>
                     );
@@ -1208,7 +1237,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
             {agentSetKey !== "newConsultant" && (
               <button
                 onClick={() => handleEditScenarioName(agentSetKey)}
-                className="px-3 py-2 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg text-sm hover:bg-white/20 transition-all"
+                className="px-3 py-2 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-all"
                 title="시나리오 이름 편집"
               >
                 편집
@@ -1219,7 +1248,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       </div>
 
       <div className="flex flex-1 gap-4 px-6 py-4 overflow-hidden relative">
-        <div className="flex-1 bg-white/5 backdrop-blur-sm rounded-2xl border border-white/10 overflow-hidden">
+        <div className="flex-1 bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden">
           <Transcript
             userText={userText}
             setUserText={setUserText}
@@ -1233,12 +1262,19 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         
         {/* 상담사 설정 사이드바 */}
         {isConsultantSettingsOpen && (
-          <div className="w-1/3 bg-slate-800/90 backdrop-blur-sm rounded-2xl border border-white/10 shadow-2xl flex flex-col h-full max-h-[80vh]">
-            <div className="flex justify-between items-center px-6 py-2 sticky top-0 z-10 text-base border-b border-white/10 bg-slate-800/90 backdrop-blur-sm rounded-t-2xl">
-              <span className="font-semibold text-white text-sm">상담사 설정</span>
+          <div className="w-1/3 bg-white rounded-2xl border border-gray-200 shadow-lg flex flex-col h-full max-h-[80vh]">
+            <div className="flex justify-between items-center px-6 py-2 sticky top-0 z-10 text-base border-b border-gray-200 bg-white rounded-t-2xl">
+              <div>
+                <span className="font-semibold text-gray-900 text-sm">상담사 설정</span>
+                {selectedAgentConfig.startsWith("consultant_") && savedConsultants[selectedAgentConfig]?.industry && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    {industryCategories.find(cat => cat.id === savedConsultants[selectedAgentConfig].industry)?.name}
+                  </div>
+                )}
+              </div>
                 <button
                   onClick={() => setIsConsultantSettingsOpen(false)}
-                className="text-gray-300 hover:text-white text-xl w-6 h-6 flex items-center justify-center rounded-full hover:bg-white/10 transition-colors"
+                className="text-gray-500 hover:text-gray-700 text-xl w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
                 >
                 ×
                 </button>
@@ -1249,12 +1285,157 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               style={{ 
                 maxHeight: 'calc(80vh - 120px)',
                 scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(255, 255, 255, 0.2) transparent'
+                scrollbarColor: 'rgba(0, 0, 0, 0.2) transparent'
               }}
             >
-              {/* 업체명 설정 */}
+              {/* 업종 선택 */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">업종 선택</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {industryCategories.map((industry) => (
+                    <div
+                      key={industry.id}
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all text-center ${
+                        industryBasedSettings?.industry === industry.id
+                          ? `bg-gray-200 border-gray-400 shadow-md`
+                          : `bg-white border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-sm`
+                      }`}
+                      onClick={() => {
+                        const defaultSettings = getDefaultSettingsByIndustry(industry.id);
+                        const newSettings = {
+                          industry: industry.id,
+                          companyName: defaultSettings.companyName,
+                          greeting: defaultSettings.greeting,
+                          serviceTypes: defaultSettings.serviceTypes,
+                          businessHours: defaultSettings.businessHours,
+                          location: defaultSettings.location
+                        };
+                        setIndustryBasedSettings(newSettings);
+
+                        // 모든 관련 설정을 업종에 맞게 업데이트
+                        setConsultantGreeting(defaultSettings.greeting);
+                        setConsultantStoreName(defaultSettings.companyName);
+                        // 업종별 맞춤 정보 설정
+                        let customInfo = '';
+                        switch (industry.id) {
+                          case 'beauty':
+                            customInfo = `${defaultSettings.companyName}는 헤어컷, 펌, 염색, 네일아트, 피부관리 등 다양한 미용 서비스를 제공합니다. 전문 디자이너가 고객님만의 아름다움을 찾아드립니다.`;
+                            break;
+                          case 'restaurant':
+                            customInfo = `${defaultSettings.companyName}는 신선한 재료로 만든 맛있는 음식과 따뜻한 서비스를 제공합니다. 특별한 날을 위한 예약과 단체 모임도 환영합니다.`;
+                            break;
+                          case 'medical':
+                            customInfo = `${defaultSettings.companyName}는 환자의 건강을 최우선으로 하는 의료 서비스를 제공합니다. 정기 검진, 진료 예약, 건강 상담을 도와드립니다.`;
+                            break;
+                          case 'fitness':
+                            customInfo = `${defaultSettings.companyName}는 개인 맞춤형 운동 프로그램과 전문 트레이너의 지도를 제공합니다. 헬스, 요가, 필라테스, 개인PT 등 다양한 수업을 운영합니다.`;
+                            break;
+                          case 'education':
+                            customInfo = `${defaultSettings.companyName}는 개인별 학습 수준에 맞는 맞춤형 교육을 제공합니다. 개인과외, 그룹수업, 온라인수업 등 다양한 학습 방법을 지원합니다.`;
+                            break;
+                          case 'automotive':
+                            customInfo = `${defaultSettings.companyName}는 정기점검, 수리, 세차, 타이어교체 등 자동차 관련 모든 서비스를 제공합니다. 안전한 운전을 위한 전문적인 정비 서비스를 자랑합니다.`;
+                            break;
+                          case 'pet':
+                            customInfo = `${defaultSettings.companyName}는 반려동물의 건강과 아름다움을 위한 전문 서비스를 제공합니다. 목욕, 미용, 진료, 호텔, 훈련 등 다양한 펫 서비스를 운영합니다.`;
+                            break;
+                          case 'wedding':
+                            customInfo = `${defaultSettings.companyName}는 특별한 순간을 위한 완벽한 웨딩 서비스를 제공합니다. 예식, 스튜디오촬영, 드레스대여, 헤어메이크업 등 원스톱 웨딩 서비스를 자랑합니다.`;
+                            break;
+                          case 'personalAssistant':
+                            customInfo = `${defaultSettings.companyName}는 개인 맞춤형 비서 서비스를 제공합니다. 일정 관리, 업무 지원, 생활 도우미, 쇼핑 대행, 여행 계획 등 개인의 모든 업무를 효율적으로 도와드립니다.`;
+                            break;
+                          default:
+                            customInfo = `${defaultSettings.companyName}는 고객님의 편의를 위해 최선을 다하는 서비스를 제공합니다. 전문적인 상담과 맞춤형 서비스로 고객 만족을 추구합니다.`;
+                        }
+                        setConsultantInfo(customInfo);
+                        // 업종별 맞춤 역할 설정
+                        let customRole = '';
+                        switch (industry.id) {
+                          case 'beauty':
+                            customRole = '미용 전문 상담사 - 헤어, 네일, 피부관리 서비스 안내';
+                            break;
+                          case 'restaurant':
+                            customRole = '레스토랑 상담사 - 예약, 메뉴 안내, 서비스 상담';
+                            break;
+                          case 'medical':
+                            customRole = '의료 상담사 - 진료 예약, 건강 상담, 병원 안내';
+                            break;
+                          case 'fitness':
+                            customRole = '피트니스 상담사 - 수업 예약, 운동 상담, 프로그램 안내';
+                            break;
+                          case 'education':
+                            customRole = '교육 상담사 - 수강 상담, 학습 프로그램 안내';
+                            break;
+                          case 'automotive':
+                            customRole = '자동차 정비 상담사 - 정비 예약, 차량 점검 안내';
+                            break;
+                          case 'pet':
+                            customRole = '펫 서비스 상담사 - 반려동물 서비스 예약 및 상담';
+                            break;
+                          case 'wedding':
+                            customRole = '웨딩 상담사 - 예식 예약, 웨딩 서비스 안내';
+                            break;
+                          case 'personalAssistant':
+                            customRole = '개인 비서 - 일정 관리, 업무 지원, 생활 도우미 서비스';
+                            break;
+                          default:
+                            customRole = '고객 서비스 상담사 - 전반적인 서비스 안내 및 상담';
+                        }
+                        setConsultantRole(customRole);
+
+                        // 업종별 맞춤 인사말 생성
+                        const industryName = industryCategories.find(cat => cat.id === industry.id)?.name;
+                        let customGreeting = '';
+
+                        switch (industry.id) {
+                          case 'beauty':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 아름다운 변화를 위해 헤어, 네일, 피부관리 서비스를 제공하고 있습니다. 어떤 서비스를 도와드릴까요?`;
+                            break;
+                          case 'restaurant':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 맛있는 음식과 따뜻한 서비스로 고객님을 맞이하겠습니다. 예약이나 문의사항을 도와드릴까요?`;
+                            break;
+                          case 'medical':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 건강한 하루를 위한 의료 서비스를 제공하고 있습니다. 진료 예약이나 상담을 도와드릴까요?`;
+                            break;
+                          case 'fitness':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 건강한 몸과 마음을 위한 피트니스 서비스를 제공하고 있습니다. 수업 예약이나 상담을 도와드릴까요?`;
+                            break;
+                          case 'education':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 꿈을 향한 학습을 도와드리는 교육 서비스를 제공하고 있습니다. 수강 상담이나 문의사항을 도와드릴까요?`;
+                            break;
+                          case 'automotive':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 안전한 운전을 위한 자동차 정비 서비스를 제공하고 있습니다. 정비 예약이나 상담을 도와드릴까요?`;
+                            break;
+                          case 'pet':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 소중한 반려동물을 위한 펫 서비스를 제공하고 있습니다. 서비스 예약이나 상담을 도와드릴까요?`;
+                            break;
+                          case 'wedding':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 특별한 순간을 만들어드리는 웨딩 서비스를 제공하고 있습니다. 예식 예약이나 상담을 도와드릴까요?`;
+                            break;
+                          case 'personalAssistant':
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 개인 맞춤형 비서 서비스를 제공하고 있습니다. 일정 관리, 업무 지원, 생활 도우미 등 어떤 도움이 필요하신가요?`;
+                            break;
+                          default:
+                            customGreeting = `안녕하세요! ${defaultSettings.companyName}입니다. 고객님의 편의를 위해 최선을 다하는 서비스를 제공하고 있습니다. 어떤 도움이 필요하신가요?`;
+                        }
+
+                        setConsultantGreeting(customGreeting);
+                      }}
+                    >
+                      <div className="text-lg mb-1">{industry.icon}</div>
+                      <div className="text-xs font-medium text-gray-900">{industry.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* 업종 선택 후에만 표시되는 설정들 */}
+              {industryBasedSettings?.industry && (
+                <>
+                  {/* 업체명 설정 */}
+                  <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   업체명
                 </label>
                 <input
@@ -1262,41 +1443,41 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                   value={consultantStoreName || ""}
                   onChange={(e) => setConsultantStoreName(e.target.value)}
                   placeholder="예: 맛있는 고깃집, 따뜻한 카페 등"
-                  className="w-full p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent"
                 />
               </div>
               
               {/* 인사말 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   인사말
                 </label>
                 <textarea
                   value={consultantGreeting || ""}
                   onChange={(e) => setConsultantGreeting(e.target.value)}
                   placeholder="안녕하세요! 저는 고객 만족을 최우선으로 하는 친근한 상담사입니다. 무엇을 도와드릴까요?"
-                  className="w-full h-20 p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-20 p-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent"
                   style={{ overflowY: 'auto', minHeight: '80px', maxHeight: '120px' }}
                 />
               </div>
               
               {/* 역할 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   역할
                 </label>
                 <textarea
                   value={consultantRole || ""}
                   onChange={(e) => setConsultantRole(e.target.value)}
                   placeholder="당신은 전문적이고 친근한 한국인 상담사입니다. 고객의 문제를 신속하고 정확하게 해결하며, 항상 친절하고 도움이 되는 서비스를 제공합니다."
-                  className="w-full h-32 p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-32 p-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent"
                   style={{ overflowY: 'hidden', minHeight: '128px', maxHeight: '200px' }}
                 />
               </div>
 
               {/* 정보 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   정보
                 </label>
                 <textarea
@@ -1306,14 +1487,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 메뉴: 삼겹살 15,000원, 갈비 25,000원
 주차: 건물 지하 1층, 2시간 무료
 최대 예약 가능 인원: 8명`}
-                  className="w-full h-32 p-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full h-32 p-2 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent"
                   style={{ overflowY: 'hidden', minHeight: '128px', maxHeight: '200px' }}
                 />
               </div>
 
               {/* 상담사 목소리 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   상담사 목소리
                 </label>
                 
@@ -1323,8 +1504,8 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                     onClick={() => setVoiceGenderFilter('all')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       voiceGenderFilter === 'all' 
-                        ? 'bg-white/20 text-white border border-white/30' 
-                        : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-white/15'
+                        ? 'bg-[#58CC02] text-white border border-[#58CC02]' 
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                     }`}
                   >
                     전체
@@ -1333,8 +1514,8 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                     onClick={() => setVoiceGenderFilter('male')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       voiceGenderFilter === 'male' 
-                        ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50' 
-                        : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-blue-500/20'
+                        ? 'bg-[#58CC02] text-white border border-[#58CC02]' 
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                     }`}
                   >
                     남성
@@ -1343,19 +1524,19 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                     onClick={() => setVoiceGenderFilter('female')}
                     className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                       voiceGenderFilter === 'female' 
-                        ? 'bg-pink-500/30 text-pink-300 border border-pink-400/50' 
-                        : 'bg-white/10 text-gray-300 border border-white/20 hover:bg-pink-500/20'
+                        ? 'bg-[#58CC02] text-white border border-[#58CC02]' 
+                        : 'bg-gray-100 text-gray-700 border border-gray-300 hover:bg-gray-200'
                     }`}
                   >
                     여성
                   </button>
                 </div>
             
-                <div className="relative inline-block voice-dropdown-container w-full">
-                  <button
-                    onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
-                    className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-base px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none text-white text-left hover:bg-white/15 transition-all"
-                  >
+                 <div className="relative inline-block voice-dropdown-container w-full">
+                   <button
+                     onClick={() => setIsVoiceDropdownOpen(!isVoiceDropdownOpen)}
+                     className="w-full appearance-none bg-white border-2 border-gray-400 rounded-lg text-sm px-3 py-1.5 pr-8 cursor-pointer font-medium focus:outline-none text-gray-900 text-left hover:bg-gray-50 hover:border-gray-500 transition-all shadow-sm"
+                   >
                     <span 
                       style={{ 
                         color: getVoiceById(selectedVoiceId).gender === 'male' ? '#60a5fa' : '#f472b6' 
@@ -1363,11 +1544,11 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                     >
                       {getVoiceById(selectedVoiceId).name}
                     </span>
-                    <span className="text-gray-300"> : {getVoiceById(selectedVoiceId).description}</span>
+                    <span className="text-gray-700"> : {getVoiceById(selectedVoiceId).description}</span>
                   </button>
-                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-300">
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-gray-600">
                     <svg
-                      className="h-4 w-4"
+                      className="h-4 w-4 text-gray-600"
                       viewBox="0 0 20 20"
                       fill="currentColor"
                     >
@@ -1381,12 +1562,12 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               
                   {/* 드롭다운 메뉴 */}
                   {isVoiceDropdownOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-full bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-lg shadow-2xl z-50 max-h-60 overflow-y-auto">
+                    <div className="absolute top-full left-0 mt-1 w-full bg-white border-2 border-gray-400 rounded-lg shadow-xl z-50 max-h-60 overflow-y-auto">
                       {getFilteredVoices().map((voice) => (
                         <button
                           key={voice.id}
                           onClick={() => handleVoiceChange(voice.id)}
-                          className="w-full text-left px-3 py-2 hover:bg-white/10 text-base font-normal text-white transition-colors"
+                          className="w-full text-left px-3 py-1.5 hover:bg-gray-50 text-sm font-medium text-gray-900 transition-colors"
                         >
                           <span 
                             style={{ 
@@ -1395,7 +1576,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                           >
                             {voice.name}
                           </span>
-                          <span className="text-gray-300"> : {voice.description}</span>
+                          <span className="text-gray-700"> : {voice.description}</span>
                         </button>
                       ))}
                     </div>
@@ -1405,14 +1586,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 대화 스타일 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   대화 스타일
                 </label>
-                <div className="relative inline-block w-full">
-                  <select
-                    value={conversationStyle}
-                    onChange={(e) => setConversationStyle(e.target.value)}
-                    className="w-full appearance-none bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-base px-3 py-1 pr-8 cursor-pointer font-normal focus:outline-none text-white text-left hover:bg-white/15 transition-all"
+                 <div className="relative inline-block w-full">
+                   <select
+                     value={conversationStyle}
+                     onChange={(e) => setConversationStyle(e.target.value)}
+                     className="w-full appearance-none bg-white border-2 border-gray-400 rounded-lg text-sm px-3 py-1.5 pr-8 cursor-pointer font-medium focus:outline-none text-gray-900 text-left hover:bg-gray-50 hover:border-gray-500 transition-all shadow-sm"
                     title={
                       conversationStyle === "calm" 
                         ? "차분하고 명확하게, 천천히 여유롭게 설명해주세요."
@@ -1423,16 +1604,16 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                         : "사용자가 직접 대화 스타일을 입력할 수 있습니다."
                     }
                   >
-                    <option value="calm" className="bg-slate-800 text-white">차분한 스타일</option>
-                    <option value="standard" className="bg-slate-800 text-white">표준 스타일</option>
-                    <option value="energetic" className="bg-slate-800 text-white">활발한 스타일</option>
-                    <option value="custom" className="bg-slate-800 text-white">사용자 지정</option>
+                    <option value="calm" className="bg-white text-gray-900">차분한 스타일</option>
+                    <option value="standard" className="bg-white text-gray-900">표준 스타일</option>
+                    <option value="energetic" className="bg-white text-gray-900">활발한 스타일</option>
+                    <option value="custom" className="bg-white text-gray-900">사용자 지정</option>
                   </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
-                    <svg className="w-4 h-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  </div>
+                   <div className="absolute inset-y-0 right-0 flex items-center pr-2 pointer-events-none">
+                     <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                     </svg>
+                   </div>
                 </div>
 
                 {/* 사용자 지정 스타일 입력창 */}
@@ -1442,7 +1623,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                       value={customConversationStyle}
                       onChange={(e) => setCustomConversationStyle(e.target.value)}
                       placeholder="예: SYSTEM: 모든 응답을 빠르고 간결하게 해주세요. SYSTEM: 즉시 핵심만 답변해주세요."
-                      className="w-full h-20 p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      className="w-full h-20 p-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent text-sm"
                       style={{ overflowY: 'auto', minHeight: '80px', maxHeight: '120px' }}
                     />
                   </div>
@@ -1451,7 +1632,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 목소리 속도 설정 (미구현) */}
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
                   목소리 속도 (미구현)
                 </label>
                 <div className="relative">
@@ -1467,7 +1648,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                           console.log('🎵 SLIDER CHANGED TO:', parseFloat(e.target.value));
                           handleVoiceSpeedChange(parseFloat(e.target.value));
                         }}
-                        className="w-full h-2 bg-white/20 rounded-lg appearance-none cursor-pointer opacity-50"
+                        className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer opacity-50"
                         disabled
                       />
                       {/* 슬라이더 기준 라벨 */}
@@ -1479,26 +1660,28 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                         </div>
                       </div>
                     </div>
-                    <span className="text-sm font-medium text-gray-400 min-w-[3rem]">
+                    <span className="text-sm font-medium text-gray-500 min-w-[3rem]">
                       {voiceSpeed}x
                     </span>
                   </div>
                 </div>
               </div>
+                </>
+              )}
 
             </div>
             
             {/* 저장/취소 버튼 - 스크롤 영역 밖에 고정 */}
-            <div className="flex justify-end space-x-3 py-2 px-6 border-t border-white/10">
+            <div className="flex justify-end space-x-3 py-2 px-6 border-t border-gray-200">
               <button
                 onClick={handleCancelConsultantSettings}
-                className="px-4 py-1 text-gray-300 hover:text-white transition-colors"
+                className="px-4 py-1 text-gray-600 hover:text-gray-800 transition-colors"
               >
                 취소
               </button>
               <button
                 onClick={handleSaveConsultantSettings}
-                className="px-6 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all font-medium"
+                className="px-6 py-1 bg-[#58CC02] text-white rounded-lg hover:bg-[#4BB302] transition-all font-medium"
               >
                 저장
               </button>
@@ -1556,18 +1739,18 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               }
             }}
           >
-            <div className="bg-slate-800/95 backdrop-blur-sm border border-white/20 rounded-2xl p-6 w-96 shadow-2xl">
-              <h3 className="text-lg font-semibold mb-4 text-white">상담사 저장</h3>
+            <div className="bg-white rounded-2xl p-6 w-96 shadow-xl border border-gray-200">
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 font-inter">상담사 저장</h3>
               
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   상담사 이름
                 </label>
                 <input
                   type="text"
                   value={consultantSaveName || ""}
                   onChange={(e) => setConsultantSaveName(e.target.value)}
-                  className="w-full p-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 bg-white border border-gray-300 rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-[#58CC02] focus:border-transparent"
                   placeholder="예: 고깃집 상담사, 카페 상담사"
                   autoFocus
                 />
@@ -1576,14 +1759,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={handleCancelSaveConsultant}
-                  className="px-4 py-2 text-gray-300 hover:text-white transition-colors"
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
                 >
                   취소
                 </button>
                 <button
                   onClick={handleConfirmSaveConsultant}
                   disabled={!consultantSaveName.trim()}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-all"
+                  className="px-4 py-2 bg-[#58CC02] text-white rounded-lg hover:bg-[#4BB302] disabled:bg-gray-400 disabled:cursor-not-allowed transition-all"
                 >
                   저장
                 </button>

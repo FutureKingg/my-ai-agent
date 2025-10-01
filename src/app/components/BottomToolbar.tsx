@@ -47,19 +47,19 @@ function BottomToolbar({
   }
 
   function getConnectionButtonClasses() {
-    const baseClasses = "text-white text-base p-2 w-36 rounded-xl h-full font-medium transition-all duration-300";
+    const baseClasses = "text-white text-base p-2 w-36 rounded-full h-full font-medium transition-all duration-300";
     const cursorClass = isConnecting ? "cursor-not-allowed" : "cursor-pointer";
 
     if (isConnected) {
-      // Connected -> label "Disconnect" -> red gradient
-      return `bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 shadow-lg ${cursorClass} ${baseClasses}`;
+      // Connected -> label "Disconnect" -> red
+      return `bg-red-500 hover:bg-red-600 shadow-lg ${cursorClass} ${baseClasses}`;
     }
-    // Disconnected or connecting -> label is either "Connect" or "Connecting" -> blue gradient
-    return `bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg ${cursorClass} ${baseClasses}`;
+    // Disconnected or connecting -> label is either "Connect" or "Connecting" -> green
+    return `bg-[#58CC02] hover:bg-[#4BB302] shadow-lg ${cursorClass} ${baseClasses}`;
   }
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm border-t border-white/10 px-6 py-4 flex flex-row items-center justify-between">
+    <div className="bg-white border-t border-gray-200 px-6 py-4 flex flex-row items-center justify-between">
       {/* 왼쪽 그룹: 통화 연결과 눌러서 말하기 */}
       <div className="flex flex-row items-center gap-x-8">
         <button
@@ -78,11 +78,11 @@ function BottomToolbar({
               checked={isPTTActive}
               onChange={(e) => setIsPTTActive(e.target.checked)}
               disabled={!isConnected}
-              className="w-4 h-4 text-blue-600 bg-white/10 border-white/20 rounded focus:ring-blue-500 focus:ring-2"
+              className="w-4 h-4 text-[#58CC02] bg-white border-gray-300 rounded focus:ring-[#58CC02] focus:ring-2"
             />
             <label
               htmlFor="push-to-talk"
-              className="flex items-center cursor-pointer text-gray-300 text-sm"
+              className="flex items-center cursor-pointer text-gray-600 text-sm"
             >
               눌러서 말하기
             </label>
@@ -106,9 +106,9 @@ function BottomToolbar({
             }}
             disabled={!isPTTActive}
             className={
-              (isPTTUserSpeaking ? "bg-green-500/80" : "bg-white/10") +
-              " py-2 px-4 cursor-pointer rounded-lg select-none text-white border border-white/20 transition-all" +
-              (!isPTTActive ? " bg-white/5 text-gray-500 border-white/10" : " hover:bg-white/20")
+              (isPTTUserSpeaking ? "bg-green-500" : "bg-gray-100") +
+              " py-2 px-4 cursor-pointer rounded-full select-none text-gray-700 border border-gray-300 transition-all" +
+              (!isPTTActive ? " bg-gray-50 text-gray-400 border-gray-200" : " hover:bg-gray-200")
             }
           >
             말하기
@@ -121,44 +121,21 @@ function BottomToolbar({
         <div className="flex flex-row items-center gap-2">
           <button
             onClick={onConsultantSettingsClick}
-            className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 text-sm font-medium transition-all shadow-sm"
+            className="px-3 py-1 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-all shadow-sm"
           >
             상담사 설정
           </button>
           <button
             onClick={onMicrophoneSettingsClick}
-            className="px-3 py-1 bg-white/10 backdrop-blur-sm border border-white/20 text-white rounded-lg hover:bg-white/20 text-sm font-medium transition-all shadow-sm"
+            className="px-3 py-1 bg-gray-100 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-200 text-sm font-medium transition-all shadow-sm"
           >
-            마이크 설정
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
           </button>
         </div>
 
-        <div className="flex flex-row items-center gap-2">
-          <div className="text-gray-300 text-sm">코덱:</div>
-          <select
-            id="codec-select"
-            value={codec}
-            onChange={handleCodecChange}
-            className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-lg px-2 py-0 focus:outline-none cursor-pointer text-white text-sm"
-          >
-            <option value="opus" className="bg-slate-800 text-white">Opus (48 kHz)</option>
-            <option value="pcmu" className="bg-slate-800 text-white">PCMU (8 kHz)</option>
-            <option value="pcma" className="bg-slate-800 text-white">PCMA (8 kHz)</option>
-          </select>
-        </div>
-
-        <div className="flex flex-row items-center gap-2">
-          <input
-            id="logs"
-            type="checkbox"
-            checked={isEventsPaneExpanded}
-            onChange={(e) => setIsEventsPaneExpanded(e.target.checked)}
-            className="w-4 h-4 text-blue-600 bg-white/10 border-white/20 rounded focus:ring-blue-500 focus:ring-2"
-          />
-          <label htmlFor="logs" className="flex items-center cursor-pointer text-gray-300 text-sm">
-            로그
-          </label>
-        </div>
       </div>
     </div>
   );

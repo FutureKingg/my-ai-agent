@@ -176,6 +176,86 @@ export class TableManagerAPI {
   }
 }
 
+// CatchTable API
+export class CatchTableAPI {
+  private baseUrl = 'https://api.catchtable.co.kr/v1';
+  private apiKey: string;
+  private restaurantId: string;
+
+  constructor(apiKey: string, restaurantId: string) {
+    this.apiKey = apiKey;
+    this.restaurantId = restaurantId;
+  }
+
+  // CatchTable 연동
+  async connectCatchTable() {
+    try {
+      const response = await fetch(`${this.baseUrl}/restaurants/${this.restaurantId}/connect`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('CatchTable 연동 실패:', error);
+      throw error;
+    }
+  }
+
+  // CatchTable 예약 조회
+  async getCatchTableBookings(date?: string) {
+    try {
+      const url = `${this.baseUrl}/restaurants/${this.restaurantId}/bookings${date ? `?date=${date}` : ''}`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('CatchTable 예약 조회 실패:', error);
+      throw error;
+    }
+  }
+
+  // CatchTable 예약 생성
+  async createCatchTableBooking(bookingData: any) {
+    try {
+      const response = await fetch(`${this.baseUrl}/restaurants/${this.restaurantId}/bookings`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(bookingData)
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('CatchTable 예약 생성 실패:', error);
+      throw error;
+    }
+  }
+
+  // CatchTable 예약 취소
+  async cancelCatchTableBooking(bookingId: string) {
+    try {
+      const response = await fetch(`${this.baseUrl}/restaurants/${this.restaurantId}/bookings/${bookingId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`
+        }
+      });
+      return await response.ok;
+    } catch (error) {
+      console.error('CatchTable 예약 취소 실패:', error);
+      throw error;
+    }
+  }
+}
+
 // 통합 예약 관리 시스템
 export class IntegratedBookingManager {
   private naverAPI: NaverBookingAPI;

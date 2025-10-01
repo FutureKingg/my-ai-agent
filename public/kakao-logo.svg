@@ -1,0 +1,14 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="64" height="64" rx="12" fill="#FEE500"/>
+  
+  <!-- 말풍선 -->
+  <g transform="translate(12, 16)">
+    <!-- 말풍선 몸통 -->
+    <rect x="0" y="0" width="40" height="24" rx="12" fill="black"/>
+    <!-- 말풍선 꼬리 -->
+    <path d="M8 24 L12 32 L16 24 Z" fill="black"/>
+    
+    <!-- TALK 텍스트 -->
+    <text x="20" y="16" text-anchor="middle" fill="#FEE500" font-family="Arial, sans-serif" font-size="10" font-weight="bold">TALK</text>
+  </g>
+</svg>

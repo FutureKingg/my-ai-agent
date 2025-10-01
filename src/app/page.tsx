@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { ArrowRightIcon, PhoneIcon, CogIcon, ChartBarIcon } from "@heroicons/react/24/outline";
+import Image from "next/image";
 
 export default function HomePage() {
   return (
@@ -111,6 +112,111 @@ export default function HomePage() {
           </div>
         </div>
       </div>
+
+      {/* 연동 파트너 */}
+      <section className="py-16 bg-white">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4 font-inter">
+              주요 예약 시스템과 연동
+            </h2>
+            <p className="text-lg text-gray-600 max-w-3xl mx-auto">
+              네이버, 카카오, TableManager, CatchTable 등 주요 예약 플랫폼과 
+              완벽하게 연동되어 고객의 예약을 자동으로 관리합니다.
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* 네이버 예약 */}
+            <div className="text-center p-6 bg-green-50 rounded-2xl border border-green-100">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+                <Image 
+                  src="/naver-logo.svg" 
+                  alt="네이버 예약" 
+                  width={64} 
+                  height={64}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">네이버 예약</h3>
+              <p className="text-gray-600 mb-4">
+                네이버 예약 시스템과 완벽 연동으로 
+                고객 예약을 자동으로 관리합니다.
+              </p>
+              <div className="flex items-center justify-center space-x-2 text-green-600">
+                <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                <span className="text-sm font-medium">연동됨</span>
+              </div>
+            </div>
+
+            {/* 카카오 예약 */}
+            <div className="text-center p-6 bg-yellow-50 rounded-2xl border border-yellow-100">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+                <Image 
+                  src="/kakao-logo.svg" 
+                  alt="카카오 예약" 
+                  width={64} 
+                  height={64}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">카카오 예약</h3>
+              <p className="text-gray-600 mb-4">
+                카카오 예약 플랫폼과 실시간 동기화로 
+                예약 현황을 즉시 반영합니다.
+              </p>
+              <div className="flex items-center justify-center space-x-2 text-yellow-600">
+                <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+                <span className="text-sm font-medium">연동됨</span>
+              </div>
+            </div>
+
+            {/* TableManager */}
+            <div className="text-center p-6 bg-blue-50 rounded-2xl border border-blue-100">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+                <Image 
+                  src="/tablemanager-logo.svg" 
+                  alt="TableManager" 
+                  width={64} 
+                  height={64}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">TableManager</h3>
+              <p className="text-gray-600 mb-4">
+                레스토랑 전용 예약 관리 시스템과 
+                연동하여 테이블 예약을 자동화합니다.
+              </p>
+              <div className="flex items-center justify-center space-x-2 text-blue-600">
+                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                <span className="text-sm font-medium">연동됨</span>
+              </div>
+            </div>
+
+            {/* CatchTable */}
+            <div className="text-center p-6 bg-orange-50 rounded-2xl border border-orange-100">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+                <Image 
+                  src="/catchtable-logo.svg" 
+                  alt="CatchTable" 
+                  width={64} 
+                  height={64}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">CatchTable</h3>
+              <p className="text-gray-600 mb-4">
+                한국 대표 레스토랑 예약 플랫폼과 
+                연동하여 고객 예약을 자동으로 관리합니다.
+              </p>
+              <div className="flex items-center justify-center space-x-2 text-orange-600">
+                <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
+                <span className="text-sm font-medium">연동됨</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Footer */}
       <footer className="bg-gray-50 border-t border-gray-100 py-8">

@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { CalendarIcon, ClockIcon, UserIcon, PhoneIcon } from '@heroicons/react/24/outline';
 import { bookingAPI, crmAPI, integratedAPI } from '@/app/lib/apiServices';
+import Image from 'next/image';
 
 interface Booking {
   id: string;
@@ -230,27 +231,159 @@ export default function BookingIntegration() {
         </div>
       </div>
 
-      {/* API 상태 */}
+      {/* API 연동 상태 */}
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">API 연동 상태</h3>
+          <h3 className="text-lg font-semibold text-gray-900">예약 시스템 연동 상태</h3>
         </div>
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {/* 네이버 예약 */}
+            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border border-green-200">
               <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="font-medium text-gray-900">예약 시스템 API</span>
+                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                  <Image 
+                    src="/naver-logo.svg" 
+                    alt="네이버 로고" 
+                    width={40} 
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">네이버 예약</span>
+                  <p className="text-xs text-gray-500">45개 예약</p>
+                </div>
               </div>
-              <span className="text-sm text-green-600">연결됨</span>
+              <div className="text-right">
+                <span className="text-sm text-green-600 font-medium">연결됨</span>
+                <p className="text-xs text-gray-500">14:30 동기화</p>
+              </div>
             </div>
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+
+            {/* 카카오 예약 */}
+            <div className="flex items-center justify-between p-4 bg-yellow-50 rounded-lg border border-yellow-200">
               <div className="flex items-center space-x-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                <span className="font-medium text-gray-900">CRM 시스템 API</span>
+                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                  <Image 
+                    src="/kakao-logo.svg" 
+                    alt="카카오 로고" 
+                    width={40} 
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">카카오 예약</span>
+                  <p className="text-xs text-gray-500">23개 예약</p>
+                </div>
               </div>
-              <span className="text-sm text-green-600">연결됨</span>
+              <div className="text-right">
+                <span className="text-sm text-yellow-600 font-medium">연결됨</span>
+                <p className="text-xs text-gray-500">14:25 동기화</p>
+              </div>
             </div>
+
+            {/* TableManager */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                  <Image 
+                    src="/tablemanager-logo.svg" 
+                    alt="TableManager 로고" 
+                    width={40} 
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">TableManager</span>
+                  <p className="text-xs text-gray-500">0개 예약</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-sm text-gray-600 font-medium">대기중</span>
+                <p className="text-xs text-gray-500">미연동</p>
+              </div>
+            </div>
+
+            {/* CatchTable */}
+            <div className="flex items-center justify-between p-4 bg-orange-50 rounded-lg border border-orange-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 rounded-lg overflow-hidden">
+                  <Image 
+                    src="/catchtable-logo.svg" 
+                    alt="CatchTable 로고" 
+                    width={40} 
+                    height={40}
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div>
+                  <span className="font-medium text-gray-900">CatchTable</span>
+                  <p className="text-xs text-gray-500">12개 예약</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-sm text-orange-600 font-medium">연결됨</span>
+                <p className="text-xs text-gray-500">14:20 동기화</p>
+              </div>
+            </div>
+          </div>
+
+          {/* 연동 버튼들 */}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <button className="flex items-center space-x-2 px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
+              <div className="w-5 h-5 rounded overflow-hidden">
+                <Image 
+                  src="/naver-logo.svg" 
+                  alt="네이버" 
+                  width={20} 
+                  height={20}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="text-sm font-medium">네이버 연동 테스트</span>
+            </button>
+            
+            <button className="flex items-center space-x-2 px-4 py-2 bg-yellow-100 text-yellow-700 rounded-lg hover:bg-yellow-200 transition-colors">
+              <div className="w-5 h-5 rounded overflow-hidden">
+                <Image 
+                  src="/kakao-logo.svg" 
+                  alt="카카오" 
+                  width={20} 
+                  height={20}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="text-sm font-medium">카카오 연동 테스트</span>
+            </button>
+            
+            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors">
+              <div className="w-5 h-5 rounded overflow-hidden">
+                <Image 
+                  src="/tablemanager-logo.svg" 
+                  alt="TableManager" 
+                  width={20} 
+                  height={20}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="text-sm font-medium">TableManager 연동</span>
+            </button>
+            
+            <button className="flex items-center space-x-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors">
+              <div className="w-5 h-5 rounded overflow-hidden">
+                <Image 
+                  src="/catchtable-logo.svg" 
+                  alt="CatchTable" 
+                  width={20} 
+                  height={20}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <span className="text-sm font-medium">CatchTable 연동</span>
+            </button>
           </div>
         </div>
       </div>

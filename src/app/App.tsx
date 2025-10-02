@@ -41,6 +41,11 @@ const baseScenarioMap: Record<string, RealtimeAgent[]> = {
 
 import useAudioDownload from "./hooks/useAudioDownload";
 import { useHandleSessionHistory } from "./hooks/useHandleSessionHistory";
+import { useUsageTracking } from "./hooks/useUsageTracking";
+import UsageTrackerComponent from "./components/UsageTracker";
+import SpeechQualityIndicator from "./components/SpeechQualityIndicator";
+import { RealTimeUsageTracker } from "./lib/realTimeUsageTracker";
+import { SpeechRecognitionFilter, SpeechQualityTracker } from "./lib/speechRecognitionFilter";
 
 function App() {
   const searchParams = useSearchParams()!;
@@ -77,6 +82,7 @@ function App() {
   const [noiseSuppression, setNoiseSuppression] = useState<boolean>(false);
   const [echoCancellation, setEchoCancellation] = useState<boolean>(false);
   const [autoGainControl, setAutoGainControl] = useState<boolean>(false);
+  const [vadThreshold, setVadThreshold] = useState<number>(0.7); // VAD 임계값
   const [isMicrophoneSettingsOpen, setIsMicrophoneSettingsOpen] = useState<boolean>(false);
   
   // 상담사 설정 관련 상태
@@ -180,6 +186,25 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
     serviceTypes?: string[];
   }>>({});
   const [userText, setUserText] = useState<string>("");
+
+  // 사용량 추적
+  const [currentUserId] = useState<string>(() => {
+    // 실제로는 로그인된 사용자 ID를 사용
+    return `user_${Date.now()}`;
+  });
+  
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  
+  const {
+    usage,
+    stats,
+    canMakeCall,
+    remainingTime,
+    startCall: startCallTracking,
+    endCall: endCallTracking,
+    formatTime,
+    isLoading: usageLoading
+  } = useUsageTracking(currentUserId);
 
   // Note: Voice speed is now handled during connection, not in real-time
 
@@ -336,6 +361,12 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
   };
 
   const connectToRealtime = async () => {
+    // 사용량 확인
+    if (!canMakeCall) {
+      alert('무료 체험 시간이 모두 소진되었습니다. 유료 플랜으로 업그레이드해주세요.');
+      return;
+    }
+
     const agentSetKey = selectedAgentConfig;
     console.log('🎵 Connecting to realtime with agentSetKey:', agentSetKey);
     console.log('🎵 Available scenarios:', Object.keys(sdkScenarioMap));
@@ -352,6 +383,17 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
     }
     
     setSessionStatus("CONNECTING");
+
+    // 통화 세션 시작 (연결 성공 후에만 시간 추적)
+    const sessionId = startCallTracking();
+    if (!sessionId) {
+      alert('통화를 시작할 수 없습니다. 사용량을 확인해주세요.');
+      setSessionStatus("DISCONNECTED");
+      return;
+    }
+    setCurrentSessionId(sessionId);
+    
+    // 실시간 사용량 추적은 연결 성공 후에 시작
 
     try {
       const EPHEMERAL_KEY = await fetchEphemeralKey();
@@ -502,25 +544,63 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         setSessionStatus("DISCONNECTED");
       }, 10000);
 
-      await connect({
-        getEphemeralKey: async () => EPHEMERAL_KEY,
-        initialAgents: agents,
-        audioElement: sdkAudioElement,
-        outputGuardrails: [guardrail],
-        extraContext: {
-          addTranscriptBreadcrumb,
-        },
+      console.log('🎵 연결 시도 중...', {
+        agents: agents.length,
         voiceSpeed: finalVoiceSpeed,
-        audioOptions: {
-          noiseSuppression,
-          echoCancellation,
-          autoGainControl,
-        },
+        vadThreshold: vadThreshold,
+        audioOptions: { noiseSuppression, echoCancellation, autoGainControl }
+      });
+      
+      console.log('🎵 VAD 설정:', {
+        threshold: vadThreshold,
+        description: vadThreshold >= 0.7 ? '소음 많은 환경 (엄격)' : 
+                    vadThreshold >= 0.5 ? '일반 환경 (보통)' : '조용한 환경 (민감)'
       });
 
-      // Clear timeout on successful connection
-      clearTimeout(connectionTimeout);
-      console.log('🎵 Connection established successfully');
+      try {
+        await connect({
+          getEphemeralKey: async () => EPHEMERAL_KEY,
+          initialAgents: agents,
+          audioElement: sdkAudioElement,
+          outputGuardrails: [guardrail],
+          extraContext: {
+            addTranscriptBreadcrumb,
+          },
+          voiceSpeed: finalVoiceSpeed,
+          vadThreshold: vadThreshold,
+          audioOptions: {
+            noiseSuppression,
+            echoCancellation,
+            autoGainControl,
+          },
+        });
+
+        // Clear timeout on successful connection
+        clearTimeout(connectionTimeout);
+        console.log('🎵 Connection established successfully');
+        
+        // 연결 성공 후에만 실시간 사용량 추적 시작
+        RealTimeUsageTracker.startCall(currentUserId, sessionId);
+      } catch (error) {
+        console.error('🎵 Connection failed:', error);
+        console.error('🎵 Error details:', {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        });
+        clearTimeout(connectionTimeout);
+        setSessionStatus("DISCONNECTED");
+        
+        // 연결 실패 시 사용량 추적 중지
+        if (sessionId) {
+          RealTimeUsageTracker.endCall(sessionId);
+          endCallTracking(sessionId);
+          setCurrentSessionId(null);
+        }
+        
+        alert(`연결에 실패했습니다: ${error.message}`);
+        return;
+      }
 
       console.log('🎵 Connected with voice speed:', finalVoiceSpeed);
 
@@ -548,6 +628,13 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
     disconnect();
     setSessionStatus("DISCONNECTED");
     setIsPTTUserSpeaking(false);
+    
+    // 통화 세션 종료
+    if (currentSessionId) {
+      RealTimeUsageTracker.endCall(currentSessionId);
+      endCallTracking(currentSessionId);
+      setCurrentSessionId(null);
+    }
   };
 
   const sendSimulatedUserMessage = (text: string) => {
@@ -1259,6 +1346,21 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
             }
           />
         </div>
+
+        {/* 사용량 추적 컴포넌트 */}
+        <div className="w-80 h-full">
+          <UsageTrackerComponent 
+            userId={currentUserId}
+            onUsageLimitReached={() => {
+              alert('무료 체험이 완료되었습니다. 유료 플랜으로 업그레이드해주세요.');
+              disconnectFromRealtime();
+            }}
+            onWarningShown={(message) => {
+              // 경고 메시지 표시 (토스트 등)
+              console.log('사용량 경고:', message);
+            }}
+          />
+        </div>
         
         {/* 상담사 설정 사이드바 */}
         {isConsultantSettingsOpen && (
@@ -1852,6 +1954,9 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         <Events isExpanded={isEventsPaneExpanded} />
       </div>
 
+      {/* 음성 인식 품질 표시기 */}
+      <SpeechQualityIndicator isVisible={sessionStatus === "CONNECTED"} />
+
       <BottomToolbar
         sessionStatus={sessionStatus}
         onToggleConnection={onToggleConnection}
@@ -1878,6 +1983,12 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         setEchoCancellation={setEchoCancellation}
         autoGainControl={autoGainControl}
         setAutoGainControl={setAutoGainControl}
+        codec={urlCodec}
+        onCodecChange={handleCodecChange}
+        isEventsPaneExpanded={isEventsPaneExpanded}
+        setIsEventsPaneExpanded={setIsEventsPaneExpanded}
+        vadThreshold={vadThreshold}
+        setVadThreshold={setVadThreshold}
       />
     </div>
   );

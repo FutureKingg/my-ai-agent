@@ -23,6 +23,7 @@ export interface ConnectOptions {
   extraContext?: Record<string, any>;
   outputGuardrails?: any[];
   voiceSpeed?: number;
+  vadThreshold?: number;
   audioOptions?: {
     noiseSuppression?: boolean;
     echoCancellation?: boolean;
@@ -125,6 +126,7 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       extraContext,
       outputGuardrails,
       voiceSpeed = 1.0,
+      vadThreshold = 0.7,
     }: ConnectOptions) => {
       if (sessionRef.current) return; // already connected
 
@@ -177,9 +179,17 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       console.log('🎵 Full Session Config:', JSON.stringify(sessionConfig, null, 2));
       console.log('🎵 Speed Config Specifically:', JSON.stringify(sessionConfig.config.response, null, 2));
 
+      console.log('🎵 Creating RealtimeSession...');
       sessionRef.current = new RealtimeSession(rootAgent, sessionConfig);
 
-      await sessionRef.current.connect({ apiKey: ek });
+      console.log('🎵 Connecting to OpenAI...');
+      try {
+        await sessionRef.current.connect({ apiKey: ek });
+        console.log('🎵 OpenAI connection successful');
+      } catch (error) {
+        console.error('🎵 OpenAI connection failed:', error);
+        throw error;
+      }
       
       // Apply voice speed to the actual WebRTC audio element after connection
       if (audioElement && voiceSpeed !== 1.0) {

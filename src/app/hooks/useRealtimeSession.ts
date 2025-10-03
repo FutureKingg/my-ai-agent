@@ -128,7 +128,12 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       voiceSpeed = 1.0,
       vadThreshold = 0.7,
     }: ConnectOptions) => {
-      if (sessionRef.current) return; // already connected
+      if (sessionRef.current) {
+        console.log('🎵 Session already exists, disconnecting first...');
+        await disconnect();
+        // Wait longer for complete cleanup
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
 
       updateStatus('CONNECTING');
 
@@ -145,6 +150,12 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
       console.log('🎵 Voice Speed Type:', typeof voiceSpeed);
       console.log('🎵 Voice Speed Valid:', voiceSpeed >= 0.25 && voiceSpeed <= 1.5);
       console.log('🎵 Root Agent Voice:', rootAgent.voice);
+      console.log('🎵 Agent Voice Type:', typeof rootAgent.voice);
+      console.log('🎵 Agent Voice Valid:', rootAgent.voice && typeof rootAgent.voice === 'string');
+      console.log('🎵 Full Root Agent:', JSON.stringify(rootAgent, null, 2));
+      console.log('🎵 Session Config Voice:', rootAgent.voice);
+      console.log('🎵 Session Config Speed:', voiceSpeed);
+      console.log('🎵 Connection timestamp:', new Date().toISOString());
       
       const sessionConfig = {
         transport: new OpenAIRealtimeWebRTC({
@@ -155,7 +166,7 @@ export function useRealtimeSession(callbacks: RealtimeSessionCallbacks = {}) {
             return pc;
           },
         }),
-        model: 'gpt-4o-realtime-preview-2025-06-03',
+        model: 'gpt-realtime',
         config: {
           inputAudioFormat: audioFormat,
           outputAudioFormat: audioFormat,

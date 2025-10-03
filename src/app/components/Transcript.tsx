@@ -126,7 +126,7 @@ function Transcript({
               const containerClasses = `flex justify-end flex-col ${
                 isUser ? "items-end" : "items-start"
               }`;
-              const bubbleBase = `max-w-lg p-2.5 ${
+              const bubbleBase = `max-w-lg p-3 text-base ${
                 isUser ? "bg-[#58CC02] text-white" : "bg-gray-100 border border-gray-200 text-gray-900"
               }`;
               const isBracketedMessage =

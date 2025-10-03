@@ -13,7 +13,7 @@ import MicrophoneSettings from "./components/MicrophoneSettings";
 
 // Types
 import { SessionStatus } from "@/app/types";
-import type { RealtimeAgent } from '@openai/agents/realtime';
+import { RealtimeAgent } from '@openai/agents/realtime';
 
 // Context providers & hooks
 import { useTranscript } from "@/app/contexts/TranscriptContext";
@@ -109,6 +109,7 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   // Ref to identify whether the latest agent switch came from an automatic handoff
   const handoffTriggeredRef = useRef(false);
+  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const sdkAudioElement = React.useMemo(() => {
     if (typeof window === 'undefined') return undefined;
@@ -431,25 +432,48 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
           voiceSpeed,
           savedConsultantSpeed: savedConsultant?.voiceSpeed,
           finalVoiceSpeed,
-          agentSetKey
+          agentSetKey,
+          sessionStatus,
+          timestamp: new Date().toISOString()
         });
         
-        agents.forEach(agent => {
-          // Create new agent with updated voice and speed
-          Object.assign(agent, { 
-            voice: selectedVoice.voice,
-            speed: finalVoiceSpeed
+        // Create completely new agents array with updated voice and speed
+        const newAgents = agents.map((agent) => {
+          // Create completely new agent instance with updated voice and speed
+          const newAgent = new RealtimeAgent({
+            name: agent.name,
+            voice: selectedVoice.voice,  // Use selected voice
+            instructions: agent.instructions,
+            tools: agent.tools || [],
+            handoffs: agent.handoffs || [],
+            handoffDescription: agent.handoffDescription
           });
           
-          console.log('🎵 Agent configured with:', {
+          console.log('🎵 Creating new agent:', {
+            name: agent.name,
             voice: selectedVoice.voice,
             speed: finalVoiceSpeed,
-            agentName: agent.name
+            originalVoice: agent.voice
           });
           
+          return newAgent;
+        });
+        
+        // Replace the entire agents array
+        agents.splice(0, agents.length, ...newAgents);
+        
+        console.log('🎵 All agents updated with voice:', selectedVoice.voice);
+        console.log('🎵 Final agents array:', agents.map(a => ({ name: a.name, voice: a.voice })));
+        console.log('🎵 About to connect with agents:', agents.map(a => ({ 
+          name: a.name, 
+          voice: a.voice, 
+          instructionsLength: a.instructions?.length || 0 
+        })));
+        
+        // Update agent instructions for each agent
+        agents.forEach((agent) => {
           // COMPLETELY REPLACE agent instructions with user's custom prompts
           let customInstructions = "";
-          
           
           // Get conversation style
           const currentStyle = savedConsultant ? (savedConsultant.conversationStyle || "standard") : conversationStyle;
@@ -551,6 +575,12 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         audioOptions: { noiseSuppression, echoCancellation, autoGainControl }
       });
       
+      console.log('🎵 Final Agents Before Connect:', agents.map(agent => ({
+        name: agent.name,
+        voice: agent.voice,
+        instructions: agent.instructions?.substring(0, 100) + '...'
+      })));
+      
       console.log('🎵 VAD 설정:', {
         threshold: vadThreshold,
         description: vadThreshold >= 0.7 ? '소음 많은 환경 (엄격)' : 
@@ -598,7 +628,16 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
           setCurrentSessionId(null);
         }
         
-        alert(`연결에 실패했습니다: ${error.message}`);
+        console.error('🎵 Connection error details:', {
+          error: error,
+          message: error.message,
+          stack: error.stack,
+          name: error.name,
+          selectedVoice: selectedVoice.voice,
+          voiceId: voiceIdToUse,
+          agentVoice: agents[0]?.voice
+        });
+        alert(`연결에 실패했습니다: ${error.message}\n\n선택된 목소리: ${selectedVoice.name} (${selectedVoice.voice})\n에이전트 목소리: ${agents[0]?.voice}`);
         return;
       }
 
@@ -718,7 +757,11 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       setSessionStatus("DISCONNECTED");
     } else {
       console.log('🎵 CONNECTING...');
-      connectToRealtime();
+      // Ensure clean state before connecting
+      setSessionStatus("DISCONNECTED");
+      setTimeout(() => {
+        connectToRealtime();
+      }, 100);
     }
   };
 
@@ -729,32 +772,33 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
 
   const handleVoiceChange = (newVoiceId: string) => {
+    console.log('🎵 Voice change requested:', { from: selectedVoiceId, to: newVoiceId });
+    
     setSelectedVoiceId(newVoiceId);
     setIsVoiceDropdownOpen(false);
     
     // Play voice preview
     playVoicePreview(newVoiceId);
     
-    // If connected, update all agents' voice
-    if (sessionStatus === "CONNECTED" && selectedAgentConfigSet) {
-      const selectedVoice = getVoiceById(newVoiceId);
-      selectedAgentConfigSet.forEach(agent => {
-        Object.assign(agent, { voice: selectedVoice.voice });
-      });
+    // If connected, force complete disconnection and reconnection
+    if (sessionStatus === "CONNECTED" || sessionStatus === "CONNECTING") {
+      console.log('🎵 Voice changed while connected/connecting, forcing complete reconnection...');
       
-      // Send session update to change voice
-      sendEvent({
-        type: 'session.update',
-        session: {
-          turn_detection: {
-            type: 'server_vad',
-            threshold: 0.9,
-            prefix_padding_ms: 300,
-            silence_duration_ms: 500,
-            create_response: true,
-          },
-        },
-      });
+      // Force disconnect and clear all state
+      disconnectFromRealtime();
+      setSessionStatus("DISCONNECTED");
+      
+      // Clear any pending timeouts
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      
+      // Wait longer for complete cleanup, then reconnect
+      setTimeout(() => {
+        console.log('🎵 Reconnecting with new voice:', newVoiceId);
+        connectToRealtime();
+      }, 1500);
     }
   };
 
@@ -1291,7 +1335,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
           
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <label className="text-sm font-medium text-gray-700">
+              <label className="text-base font-medium text-gray-700">
                 상담사 선택
               </label>
               <div className="relative">
@@ -1367,7 +1411,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
           <div className="w-1/3 bg-white rounded-2xl border border-gray-200 shadow-lg flex flex-col h-full max-h-[80vh]">
             <div className="flex justify-between items-center px-6 py-2 sticky top-0 z-10 text-base border-b border-gray-200 bg-white rounded-t-2xl">
               <div>
-                <span className="font-semibold text-gray-900 text-sm">상담사 설정</span>
+                <span className="font-semibold text-gray-900 text-lg">상담사 설정</span>
                 {selectedAgentConfig.startsWith("consultant_") && savedConsultants[selectedAgentConfig]?.industry && (
                   <div className="text-xs text-gray-500 mt-1">
                     {industryCategories.find(cat => cat.id === savedConsultants[selectedAgentConfig].industry)?.name}
@@ -1392,7 +1436,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
             >
               {/* 업종 선택 */}
               <div>
-                <h3 className="text-sm font-medium text-gray-700 mb-3">업종 선택</h3>
+                <h3 className="text-base font-medium text-gray-700 mb-3">업종 선택</h3>
                 <div className="grid grid-cols-2 gap-2">
                   {industryCategories.map((industry) => (
                     <div
@@ -1537,7 +1581,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
                 <>
                   {/* 업체명 설정 */}
                   <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   업체명
                 </label>
                 <input
@@ -1551,7 +1595,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               
               {/* 인사말 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   인사말
                 </label>
                 <textarea
@@ -1565,7 +1609,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               
               {/* 역할 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   역할
                 </label>
                 <textarea
@@ -1579,7 +1623,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 정보 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   정보
                 </label>
                 <textarea
@@ -1596,7 +1640,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 상담사 목소리 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   상담사 목소리
                 </label>
                 
@@ -1688,7 +1732,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 대화 스타일 설정 */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   대화 스타일
                 </label>
                  <div className="relative inline-block w-full">
@@ -1734,7 +1778,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
 
               {/* 목소리 속도 설정 (미구현) */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-3">
+                <label className="block text-base font-medium text-gray-700 mb-3">
                   목소리 속도 (미구현)
                 </label>
                 <div className="relative">

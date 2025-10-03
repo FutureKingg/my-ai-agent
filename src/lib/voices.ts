@@ -61,7 +61,7 @@ export const voices: Voice[] = [
     name: 'Fable',
     voice: 'fable',
     description: '이야기하는 듯한',
-    gender: 'male'
+    gender: 'female'
   },
   {
     id: 'openai-coral',

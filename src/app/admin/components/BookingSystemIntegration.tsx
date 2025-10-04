@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { 
   LinkIcon, 
   CheckCircleIcon, 
@@ -176,12 +177,12 @@ export default function BookingSystemIntegration() {
     }
   };
 
-  const getSystemIcon = (type: string) => {
+  const getSystemLogo = (type: string) => {
     switch (type) {
-      case 'naver': return '🟢';
-      case 'kakao': return '🟡';
-      case 'tableManager': return '🔵';
-      default: return '⚪';
+      case 'naver': return '/images/logos/네이버.png';
+      case 'kakao': return '/images/logos/카카오.png';
+      case 'tableManager': return '/images/logos/테이블매니저.png';
+      default: return '/images/logos/CatchTable.png';
     }
   };
 
@@ -207,7 +208,23 @@ export default function BookingSystemIntegration() {
               <div key={system.id} className="p-4 bg-gray-50 rounded-lg">
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center space-x-2">
-                    <span className="text-2xl">{getSystemIcon(system.type)}</span>
+                    <div className="w-8 h-8 flex items-center justify-center">
+                      <Image
+                        src={getSystemLogo(system.type)}
+                        alt={system.name}
+                        width={32}
+                        height={32}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            parent.innerHTML = `<div class="w-8 h-8 bg-gray-300 rounded flex items-center justify-center text-xs font-medium">${system.name.charAt(0)}</div>`;
+                          }
+                        }}
+                      />
+                    </div>
                     <span className="font-medium text-gray-900">{system.name}</span>
                   </div>
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(system.status)}`}>

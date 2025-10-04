@@ -129,13 +129,22 @@ export default function HomePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* 네이버 예약 */}
             <div className="text-center p-6 bg-green-50 rounded-2xl border border-green-100">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden bg-white flex items-center justify-center">
                 <Image 
-                  src="/naver-logo.svg" 
+                  src="/images/logos/네이버.png" 
                   alt="네이버 예약" 
                   width={64} 
                   height={64}
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    // 로고 로드 실패 시 텍스트로 대체
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-green-600 font-bold text-lg">N</div>';
+                    }
+                  }}
                 />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">네이버 예약</h3>
@@ -151,13 +160,21 @@ export default function HomePage() {
 
             {/* 카카오 예약 */}
             <div className="text-center p-6 bg-yellow-50 rounded-2xl border border-yellow-100">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden bg-white flex items-center justify-center">
                 <Image 
-                  src="/kakao-logo.svg" 
+                  src="/images/logos/카카오.png" 
                   alt="카카오 예약" 
-                  width={64} 
-                  height={64}
-                  className="w-full h-full object-contain"
+                  width={128} 
+                  height={128}
+                  className="w-full h-full object-cover scale-150"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-yellow-600 font-bold text-lg">K</div>';
+                    }
+                  }}
                 />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">카카오 예약</h3>
@@ -173,13 +190,21 @@ export default function HomePage() {
 
             {/* TableManager */}
             <div className="text-center p-6 bg-blue-50 rounded-2xl border border-blue-100">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden bg-white flex items-center justify-center">
                 <Image 
-                  src="/tablemanager-logo.svg" 
+                  src="/images/logos/테이블매니저.png" 
                   alt="TableManager" 
                   width={64} 
                   height={64}
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-blue-600 font-bold text-lg">T</div>';
+                    }
+                  }}
                 />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">TableManager</h3>
@@ -195,13 +220,21 @@ export default function HomePage() {
 
             {/* CatchTable */}
             <div className="text-center p-6 bg-orange-50 rounded-2xl border border-orange-100">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden">
+              <div className="w-16 h-16 mx-auto mb-4 rounded-xl overflow-hidden bg-white flex items-center justify-center">
                 <Image 
-                  src="/catchtable-logo.svg" 
+                  src="/images/logos/CatchTable.png" 
                   alt="CatchTable" 
                   width={64} 
                   height={64}
                   className="w-full h-full object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = '<div class="w-full h-full flex items-center justify-center text-orange-600 font-bold text-lg">C</div>';
+                    }
+                  }}
                 />
               </div>
               <h3 className="text-xl font-semibold text-gray-900 mb-2">CatchTable</h3>

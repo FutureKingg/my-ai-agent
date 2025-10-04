@@ -16,6 +16,95 @@ export interface IndustryCategory {
   };
 }
 
+// 예약 시스템 로고 정보
+export interface BookingSystem {
+  id: string;
+  name: string;
+  logo: string;
+  description: string;
+  website: string;
+}
+
+export const bookingSystems: BookingSystem[] = [
+  {
+    id: 'naver',
+    name: '네이버 예약',
+    logo: '/images/logos/네이버.png',
+    description: '네이버 예약 시스템 연동',
+    website: 'https://booking.naver.com'
+  },
+  {
+    id: 'catchTable',
+    name: '캐치테이블',
+    logo: '/images/logos/CatchTable.png',
+    description: '캐치테이블 예약 시스템 연동',
+    website: 'https://catchtable.co.kr'
+  },
+  {
+    id: 'kakao',
+    name: '카카오 예약',
+    logo: '/images/logos/카카오.png',
+    description: '카카오 예약 시스템 연동',
+    website: 'https://booking.kakao.com'
+  },
+  {
+    id: 'tableManager',
+    name: '테이블매니저',
+    logo: '/images/logos/테이블매니저.png',
+    description: '테이블매니저 예약 시스템 연동',
+    website: 'https://tablemanager.co.kr'
+  },
+  {
+    id: 'bookingKing',
+    name: '부킹킹',
+    logo: 'https://bookingking.co.kr/favicon.ico',
+    description: '부킹킹 예약 시스템 연동',
+    website: 'https://bookingking.co.kr'
+  },
+  {
+    id: 'medicalBooking',
+    name: '의료 예약',
+    logo: 'https://medicalbooking.co.kr/favicon.ico',
+    description: '의료 예약 시스템 연동',
+    website: 'https://medicalbooking.co.kr'
+  },
+  {
+    id: 'fitnessBooking',
+    name: '피트니스 예약',
+    logo: 'https://fitnessbooking.co.kr/favicon.ico',
+    description: '피트니스 예약 시스템 연동',
+    website: 'https://fitnessbooking.co.kr'
+  },
+  {
+    id: 'educationBooking',
+    name: '교육 예약',
+    logo: 'https://educationbooking.co.kr/favicon.ico',
+    description: '교육 예약 시스템 연동',
+    website: 'https://educationbooking.co.kr'
+  },
+  {
+    id: 'autoBooking',
+    name: '자동차 예약',
+    logo: 'https://autobooking.co.kr/favicon.ico',
+    description: '자동차 예약 시스템 연동',
+    website: 'https://autobooking.co.kr'
+  },
+  {
+    id: 'petBooking',
+    name: '펫 예약',
+    logo: 'https://petbooking.co.kr/favicon.ico',
+    description: '펫 예약 시스템 연동',
+    website: 'https://petbooking.co.kr'
+  },
+  {
+    id: 'weddingBooking',
+    name: '웨딩 예약',
+    logo: 'https://weddingbooking.co.kr/favicon.ico',
+    description: '웨딩 예약 시스템 연동',
+    website: 'https://weddingbooking.co.kr'
+  }
+];
+
 export const industryCategories: IndustryCategory[] = [
   {
     id: 'beauty',
@@ -169,8 +258,8 @@ export const industryCategories: IndustryCategory[] = [
   }
 ];
 
-// 업종별 예약 시스템 매핑
-export const getBookingSystemsByIndustry = (industryId: string): string[] => {
+// 업종별 예약 시스템 ID 목록 가져오기
+export const getBookingSystemIdsByIndustry = (industryId: string): string[] => {
   const category = industryCategories.find(cat => cat.id === industryId);
   return category ? category.bookingSystems : ['naver', 'kakao'];
 };
@@ -191,4 +280,19 @@ export const getIndustryColor = (industryId: string): string => {
 export const getIndustryIcon = (industryId: string): string => {
   const category = industryCategories.find(cat => cat.id === industryId);
   return category ? category.icon : '🔧';
+};
+
+// 예약 시스템 정보 가져오기
+export const getBookingSystemInfo = (systemId: string): BookingSystem | undefined => {
+  return bookingSystems.find(system => system.id === systemId);
+};
+
+// 업종별 예약 시스템 정보들 가져오기
+export const getBookingSystemsByIndustry = (industryId: string): BookingSystem[] => {
+  const category = industryCategories.find(cat => cat.id === industryId);
+  if (!category) return [];
+  
+  return category.bookingSystems
+    .map(systemId => getBookingSystemInfo(systemId))
+    .filter(Boolean) as BookingSystem[];
 };

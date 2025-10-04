@@ -20,7 +20,7 @@ import { useTranscript } from "@/app/contexts/TranscriptContext";
 import { useEvent } from "@/app/contexts/EventContext";
 import { useRealtimeSession } from "./hooks/useRealtimeSession";
 import { createModerationGuardrail } from "@/app/agentConfigs/guardrails";
-import { industryCategories, getDefaultSettingsByIndustry } from "@/app/lib/industryCategories";
+import { industryCategories, getDefaultSettingsByIndustry, getBookingSystemsByIndustry } from "@/app/lib/industryCategories";
 
 // Agent configs
 // import { allAgentSets, defaultAgentSetKey } from "@/app/agentConfigs"; // 제거됨
@@ -437,30 +437,18 @@ SYSTEM: 동기부여가 되는 톤으로 대화해주세요.`,
           timestamp: new Date().toISOString()
         });
         
-        // Create completely new agents array with updated voice and speed
-        const newAgents = agents.map((agent) => {
-          // Create completely new agent instance with updated voice and speed
-          const newAgent = new RealtimeAgent({
-            name: agent.name,
-            voice: selectedVoice.voice,  // Use selected voice
-            instructions: agent.instructions,
-            tools: agent.tools || [],
-            handoffs: agent.handoffs || [],
-            handoffDescription: agent.handoffDescription
-          });
+        // Update agents with new voice settings
+        agents.forEach((agent) => {
+          // Update voice directly on existing agent
+          (agent as any).voice = selectedVoice.voice;
           
-          console.log('🎵 Creating new agent:', {
+          console.log('🎵 Updating agent voice:', {
             name: agent.name,
             voice: selectedVoice.voice,
             speed: finalVoiceSpeed,
-            originalVoice: agent.voice
+            originalVoice: (agent as any).voice
           });
-          
-          return newAgent;
         });
-        
-        // Replace the entire agents array
-        agents.splice(0, agents.length, ...newAgents);
         
         console.log('🎵 All agents updated with voice:', selectedVoice.voice);
         console.log('🎵 Final agents array:', agents.map(a => ({ name: a.name, voice: a.voice })));
@@ -578,7 +566,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       console.log('🎵 Final Agents Before Connect:', agents.map(agent => ({
         name: agent.name,
         voice: agent.voice,
-        instructions: agent.instructions?.substring(0, 100) + '...'
+        instructions: typeof agent.instructions === 'string' ? agent.instructions.substring(0, 100) + '...' : '[Function]'
       })));
       
       console.log('🎵 VAD 설정:', {
@@ -614,9 +602,9 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
       } catch (error) {
         console.error('🎵 Connection failed:', error);
         console.error('🎵 Error details:', {
-          message: error.message,
-          stack: error.stack,
-          name: error.name
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : 'Unknown'
         });
         clearTimeout(connectionTimeout);
         setSessionStatus("DISCONNECTED");
@@ -630,14 +618,14 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
         
         console.error('🎵 Connection error details:', {
           error: error,
-          message: error.message,
-          stack: error.stack,
-          name: error.name,
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : 'Unknown',
           selectedVoice: selectedVoice.voice,
           voiceId: voiceIdToUse,
           agentVoice: agents[0]?.voice
         });
-        alert(`연결에 실패했습니다: ${error.message}\n\n선택된 목소리: ${selectedVoice.name} (${selectedVoice.voice})\n에이전트 목소리: ${agents[0]?.voice}`);
+        alert(`연결에 실패했습니다: ${error instanceof Error ? error.message : 'Unknown error'}\n\n선택된 목소리: ${selectedVoice.name} (${selectedVoice.voice})\n에이전트 목소리: ${agents[0]?.voice}`);
         return;
       }
 
@@ -1579,6 +1567,7 @@ SYSTEM: 시간 관련 질문에 답할 때는 현재 시간 맥락을 고려해�
               {/* 업종 선택 후에만 표시되는 설정들 */}
               {industryBasedSettings?.industry && (
                 <>
+
                   {/* 업체명 설정 */}
                   <div>
                 <label className="block text-base font-medium text-gray-700 mb-3">

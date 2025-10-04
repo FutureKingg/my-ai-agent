@@ -13,6 +13,77 @@ const nextConfig: NextConfig = {
     maxInactiveAge: 25 * 1000,
     pagesBufferLength: 2,
   },
+  // 외부 이미지 도메인 허용
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 's.pstatic.net',
+        port: '',
+        pathname: '/static/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 't1.kakaocdn.net',
+        port: '',
+        pathname: '/kakaocorp/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'catchtable.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'tablemanager.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'bookingking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'medicalbooking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fitnessbooking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'educationbooking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'autobooking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'petbooking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+      {
+        protocol: 'https',
+        hostname: 'weddingbooking.co.kr',
+        port: '',
+        pathname: '/favicon.ico',
+      },
+    ],
+  },
 };
 
 export default nextConfig;

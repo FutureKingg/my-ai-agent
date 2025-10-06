@@ -16,9 +16,7 @@
   pointer-events: none !important;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --background: #fafafa;
